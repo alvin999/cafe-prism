@@ -1,7 +1,7 @@
 // ─── Parsing utility ─────────────────────────────────────────────────────────
 export function parseAIGeneratedJSON(text) {
   let jsonStr = text.trim();
-  
+
   // Advanced JSON extraction (ignores <thinking> blocks or markdown)
   const match = jsonStr.match(/\{[\s\S]*\}/);
   if (match) {
@@ -13,7 +13,7 @@ export function parseAIGeneratedJSON(text) {
 
   // 1. Check for basic completeness (must end with })
   const isIncomplete = !jsonStr.trim().endsWith('}');
-  
+
   let result = {};
   let repaired = false;
 
@@ -49,7 +49,7 @@ export function parseAIGeneratedJSON(text) {
     result.consensus = extract(keyMap.consensus) || '';
     result.conflicts = extract(keyMap.conflicts) || '';
     result.uncertainty = extract(keyMap.uncertainty) || '';
-    
+
     const kwMatch = jsonStr.match(/"(?:keyTerms|關鍵詞|關鍵字)"\s*:\s*\[([^\]]+)\]/);
     result.keyTerms = kwMatch ? kwMatch[1].split(',').map(s => s.replace(/"/g, '').trim()) : [];
   }
@@ -68,7 +68,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function callLLM(settings, prompt, retries = 2) {
   const { provider, apiKey, model } = settings;
-  
+
   const attemptFetch = async () => {
     if (settings.modelType === 'local') {
       const r = await fetch(`${settings.ollamaUrl}/api/generate`, {
@@ -143,7 +143,7 @@ export async function callLLM(settings, prompt, retries = 2) {
   } catch (err) {
     if (err.message === 'RATE_LIMIT' && retries > 0) {
       const waitTime = (3 - retries) * 6000; // 第一次失敗等 6 秒，第二次等 12 秒
-      console.warn(`Rate limit hit, waiting ${waitTime/1000} seconds before retry...`);
+      console.warn(`Rate limit hit, waiting ${waitTime / 1000} seconds before retry...`);
       await delay(waitTime);
       return callLLM(settings, prompt, retries - 1);
     }
@@ -177,7 +177,7 @@ export async function buildGroundedSummaryPrompt(articles, language) {
 
   const hasReddit = articles.some(a => a.source === 'reddit');
   const hasPaper = articles.some(a => a.source === 'semantic_scholar');
-  
+
   let dynamicFocus = "";
   if (hasReddit) dynamicFocus += "\n- Focus on counter-intuitive community experiments, hacks, or hot debates.";
   if (hasPaper) dynamicFocus += "\n- Explain the physics/chemistry simply, and state HOW this changes a barista's daily brewing routine.";
@@ -206,7 +206,7 @@ JSON STRUCTURE:
   "consensus": "...",
   "conflicts": "...",
   "uncertainty": "...",
-  "keyTerms": ["萃取", "濃縮"]
+  "keyTerms": ["...", "..."]
 }
 
 ARTICLES:

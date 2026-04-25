@@ -189,16 +189,18 @@ export default function ResearchCard({ card, t, lang }) {
           {expanded ? '▲' : '▶'} {lang === 'zh' ? '顯示原始連結' : 'Show sources'} ({card.articles.length})
         </button>
 
-        <button
-          onClick={() => setShowDebug(!showDebug)}
-          style={{
-            background: 'none', border: 'none', color: '#504838',
-            fontSize: '12px', cursor: 'pointer', padding: 0,
-            fontFamily: 'inherit',
-          }}
-        >
-          {showDebug ? '▲' : '▶'} {t.dashboard.debugInfo}
-        </button>
+        {import.meta.env.DEV && (
+          <button
+            onClick={() => setShowDebug(!showDebug)}
+            style={{
+              background: 'none', border: 'none', color: '#504838',
+              fontSize: '12px', cursor: 'pointer', padding: 0,
+              fontFamily: 'inherit',
+            }}
+          >
+            {showDebug ? '▲' : '▶'} {t.dashboard.debugInfo}
+          </button>
+        )}
 
         {expanded && (
           <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -228,7 +230,7 @@ export default function ResearchCard({ card, t, lang }) {
           </div>
         )}
 
-        {showDebug && card.debug && (
+        {import.meta.env.DEV && showDebug && card.debug && (
           <div style={{ 
             marginTop: '12px', padding: '12px',
             background: 'rgba(0,0,0,0.4)', borderRadius: '8px',
