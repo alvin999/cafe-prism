@@ -1,0 +1,6 @@
+# Cloudflare Pages Redirects / Proxy
+# Format: /local-path/* https://target-domain.com/:splat 200
+
+/api-scholar/* https://api.semanticscholar.org/:splat 200
+/api-reddit/* https://www.reddit.com/:splat 200
+/api-allorigins/* https://api.allorigins.win/:splat 200
