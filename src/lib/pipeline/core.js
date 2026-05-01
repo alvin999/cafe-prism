@@ -104,8 +104,53 @@ export async function runResearchPipeline(settings, onProgress) {
   const cards = [];
   const lang = settings.language || 'en';
 
+  // ─── Determine if a valid model is configured ────────────────────────────
+  const hasModel =
+    settings.modelType === 'local'
+      ? !!(settings.ollamaUrl && settings.ollamaModel)
+      : settings.modelType === 'cloud'
+        ? !!(settings.apiKey && settings.provider)
+        : false;
+
   for (const item of selected) {
     const cluster = item.cluster;
+
+    // Helper to create a fallback card
+    const createFallbackCard = async (errorMsg = null) => {
+      const contentHash = await hashText(cluster.map(a => a.link).join(''));
+      return {
+        id: contentHash,
+        summary: '',
+        fun_fact: '',
+        practical_tip: '',
+        keyTerms: [],
+        consensus: '',
+        conflicts: '',
+        uncertainty: '',
+        repaired: false,
+        incomplete: false,
+        noModel: true,
+        llmError: !!errorMsg,
+        errorDetail: errorMsg,
+        articles: cluster,
+        confidence: 'low',
+        hasConflict: detectConflicts(cluster),
+        crossVerified: item.sources.size >= 2,
+        uncertainCount: 0,
+        hash: contentHash,
+        timestamp: new Date().toISOString(),
+        primaryTitle: cluster[0].title,
+        debug: errorMsg ? { error: errorMsg } : null,
+      };
+    };
+
+    // ─── No-Model Fallback: skip LLM ─────────────────────────────────────
+    if (!hasModel) {
+      cards.push(await createFallbackCard());
+      continue;
+    }
+
+    // ─── Normal LLM path ─────────────────────────────────────────────────
     try {
       const prompt = await buildGroundedSummaryPrompt(cluster, lang);
       const rawResponse = await callLLM(settings, prompt);
@@ -132,6 +177,8 @@ export async function runResearchPipeline(settings, onProgress) {
         uncertainty: data.uncertainty || '',
         repaired: repaired,
         incomplete: incomplete,
+        noModel: false,
+        llmError: false,
         articles: cluster,
         confidence,
         hasConflict,
@@ -146,7 +193,11 @@ export async function runResearchPipeline(settings, onProgress) {
           model: actualModel,
         }
       });
-    } catch (e) { console.warn('LLM failed for cluster:', e); }
+    } catch (e) { 
+      console.warn('LLM failed, falling back to raw title:', e);
+      // Even if AI fails, we show the raw title so the user gets something
+      cards.push(await createFallbackCard(e.message));
+    }
   }
 
   onProgress('Done', 100);

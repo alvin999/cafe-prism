@@ -131,6 +131,7 @@ export default function App() {
             {Object.keys(pages).map(key => (
               <button
                 key={key}
+                data-nav={key}
                 onClick={() => setPage(key)}
                 style={{
                   display: 'flex',

@@ -9,6 +9,7 @@ export function useDashboard(lang) {
   const [error, setError] = useState('');
   const [lastRun, setLastRun] = useState('');
   const [sentTelegram, setSentTelegram] = useState(false);
+  const [noModelMode, setNoModelMode] = useState(null); // null, 'no_config', 'conn_error'
 
   useEffect(() => {
     // Load last results from history
@@ -21,14 +22,11 @@ export function useDashboard(lang) {
 
   const run = async () => {
     const settings = Storage.getSettings();
-    if (!settings.modelType) {
-      setError(lang === 'zh' ? '請先前往「設定」頁面配置 AI 模型。' : 'Please configure an AI model in Settings first.');
-      return;
-    }
 
     setRunning(true);
     setError('');
     setSentTelegram(false);
+    setNoModelMode(null);
 
     try {
       const result = await runResearchPipeline(
@@ -38,6 +36,16 @@ export function useDashboard(lang) {
       setCards(result);
       Storage.addHistory(result);
       setLastRun(new Date().toLocaleString());
+
+      // Detect if all cards are in no-model fallback mode
+      const anyLlmError = result.some(c => c.llmError);
+      const allNoModel = result.length > 0 && result.every(c => c.noModel);
+      
+      if (allNoModel) {
+        setNoModelMode(anyLlmError ? 'conn_error' : 'no_config');
+      } else {
+        setNoModelMode(null);
+      }
 
       // Auto-push to Telegram if configured
       if (settings.botToken && settings.chatId && settings.autoTelegram) {
@@ -81,6 +89,7 @@ export function useDashboard(lang) {
     error,
     lastRun,
     sentTelegram,
+    noModelMode,
     run,
     handleManualPush
   };

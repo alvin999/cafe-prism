@@ -69,6 +69,17 @@ export default function ResearchCard({ card, t, lang }) {
             ⚠ {lang === 'zh' ? '輸出不完整' : 'Incomplete'}
           </span>
         )}
+        {card.noModel && (
+          <span style={{
+            fontSize: '11px', color: card.llmError ? '#ff6b6b' : '#b89040',
+            background: card.llmError ? 'rgba(255,107,107,0.08)' : 'rgba(180,140,80,0.08)', 
+            border: card.llmError ? '1px solid rgba(255,107,107,0.25)' : '1px solid rgba(180,140,80,0.25)',
+            borderRadius: '4px', padding: '1px 8px', fontWeight: 500,
+            display: 'flex', alignItems: 'center', gap: '4px',
+          }}>
+            {card.llmError ? '⚠️' : '🔌'} {card.llmError ? t.dashboard.modelErrorBadge : t.dashboard.noModelBadge}
+          </span>
+        )}
         <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#504838', fontFamily: 'monospace' }}>
           #{card.hash}
         </span>
@@ -79,9 +90,28 @@ export default function ResearchCard({ card, t, lang }) {
         {card.primaryTitle || card.subject || (lang === 'zh' ? '無標題' : 'Untitled')}
       </h3>
 
-      {/* Summary */}
+      {/* Summary / No-Model placeholder */}
       <div style={{ marginBottom: '16px' }}>
-        {card.incomplete ? (
+        {card.noModel ? (
+          <div style={{
+            color: card.llmError ? '#ff8888' : '#605040', fontStyle: 'italic',
+            background: card.llmError ? 'rgba(176,80,64,0.04)' : 'rgba(180,140,80,0.04)',
+            padding: '12px', borderRadius: '8px',
+            border: card.llmError ? '1px dashed rgba(176,80,64,0.25)' : '1px dashed rgba(180,140,80,0.15)',
+            fontSize: '13px', lineHeight: 1.6,
+          }}>
+            {card.llmError ? (
+              <>
+                <strong>{lang === 'zh' ? 'AI 連線失敗：' : 'AI Connection Failed: '}</strong>
+                {card.errorDetail || (lang === 'zh' ? '請檢查模型設定或網路連線。' : 'Please check model settings or network.')}
+              </>
+            ) : (
+              lang === 'zh'
+                ? '—— 標題來自爬蟲原始資料，尚未經 AI 整理。串接模型後即可看到摘要。'
+                : '—— Raw crawled data, not yet organized by AI. Connect a model to generate summaries.'
+            )}
+          </div>
+        ) : card.incomplete ? (
           <div style={{ 
             color: '#ff8888', fontStyle: 'italic', background: 'rgba(255,25,25,0.08)', 
             padding: '12px', borderRadius: '8px', border: '1px solid rgba(255,100,100,0.15)',
@@ -93,7 +123,7 @@ export default function ResearchCard({ card, t, lang }) {
       </div>
 
       {/* Fun Fact & Practical Tip */}
-      {(card.fun_fact || card.practical_tip) && (
+      {!card.noModel && (card.fun_fact || card.practical_tip) && (
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px',
           marginBottom: '16px'
@@ -126,33 +156,35 @@ export default function ResearchCard({ card, t, lang }) {
       )}
 
       {/* Analysis Sub-items */}
-      <div style={{ 
-        display: 'flex', flexDirection: 'column', gap: '8px', 
-        paddingLeft: '12px', borderLeft: '2px solid rgba(255,255,255,0.05)',
-        marginBottom: '16px'
-      }}>
-        {card.consensus && (
-          <div style={{ fontSize: '13px', color: '#a0b090', fontStyle: 'italic' }}>
-            <span style={{ color: '#4a9967', fontWeight: 600, marginRight: '6px' }}>✓ {t.dashboard.consensus}:</span>
-            {card.consensus}
-          </div>
-        )}
-        {card.conflicts && (
-          <div style={{ fontSize: '13px', color: '#c0a080', fontStyle: 'italic' }}>
-            <span style={{ color: '#b89040', fontWeight: 600, marginRight: '6px' }}>⚠ {t.dashboard.conflicts}:</span>
-            {card.conflicts}
-          </div>
-        )}
-        {card.uncertainty && (
-          <div style={{ fontSize: '13px', color: '#909090', fontStyle: 'italic' }}>
-            <span style={{ color: '#707070', fontWeight: 600, marginRight: '6px' }}>? {t.dashboard.uncertainty}:</span>
-            {card.uncertainty}
-          </div>
-        )}
-      </div>
+      {!card.noModel && (
+        <div style={{ 
+          display: 'flex', flexDirection: 'column', gap: '8px', 
+          paddingLeft: '12px', borderLeft: '2px solid rgba(255,255,255,0.05)',
+          marginBottom: '16px'
+        }}>
+          {card.consensus && (
+            <div style={{ fontSize: '13px', color: '#a0b090', fontStyle: 'italic' }}>
+              <span style={{ color: '#4a9967', fontWeight: 600, marginRight: '6px' }}>✓ {t.dashboard.consensus}:</span>
+              {card.consensus}
+            </div>
+          )}
+          {card.conflicts && (
+            <div style={{ fontSize: '13px', color: '#c0a080', fontStyle: 'italic' }}>
+              <span style={{ color: '#b89040', fontWeight: 600, marginRight: '6px' }}>⚠ {t.dashboard.conflicts}:</span>
+              {card.conflicts}
+            </div>
+          )}
+          {card.uncertainty && (
+            <div style={{ fontSize: '13px', color: '#909090', fontStyle: 'italic' }}>
+              <span style={{ color: '#707070', fontWeight: 600, marginRight: '6px' }}>? {t.dashboard.uncertainty}:</span>
+              {card.uncertainty}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Key Terms */}
-      {card.keyTerms && card.keyTerms.length > 0 && (
+      {!card.noModel && card.keyTerms && card.keyTerms.length > 0 && (
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px', marginBottom: '8px' }}>
           <span style={{ fontSize: '11px', color: '#605848', alignSelf: 'center' }}>{t.dashboard.keyTerms}:</span>
           {card.keyTerms.map((term, i) => (

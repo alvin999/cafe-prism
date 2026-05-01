@@ -13,6 +13,7 @@ export default function Dashboard() {
     error,
     lastRun,
     sentTelegram,
+    noModelMode,
     run,
     handleManualPush
   } = useDashboard(lang);
@@ -125,6 +126,61 @@ export default function Dashboard() {
           fontSize: '13px', color: '#4a9967',
         }}>
           ✓ {lang === 'zh' ? '已推送至 Telegram' : 'Sent to Telegram'}
+        </div>
+      )}
+
+      {/* No-Model / Connection Error Reminder Banner */}
+      {noModelMode && cards.length > 0 && !running && (
+        <div style={{
+          background: noModelMode === 'conn_error' ? 'rgba(176,80,64,0.07)' : 'rgba(180,140,80,0.07)',
+          border: noModelMode === 'conn_error' ? '1px solid rgba(176,80,64,0.28)' : '1px solid rgba(180,140,80,0.28)',
+          borderRadius: '10px',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '14px',
+        }}>
+          <span style={{ fontSize: '22px', flexShrink: 0, marginTop: '1px' }}>
+            {noModelMode === 'conn_error' ? '⚠️' : '🔌'}
+          </span>
+          <div style={{ flex: 1 }}>
+            <div style={{ 
+              fontWeight: 600, 
+              color: noModelMode === 'conn_error' ? '#c07060' : '#c8a060', 
+              fontSize: '14px', marginBottom: '5px' 
+            }}>
+              {noModelMode === 'conn_error' ? t.dashboard.modelConnErrorTitle : t.dashboard.noModelBannerTitle}
+            </div>
+            <div style={{ 
+              fontSize: '12.5px', 
+              color: noModelMode === 'conn_error' ? '#a07060' : '#907850', 
+              lineHeight: 1.7 
+            }}>
+              {noModelMode === 'conn_error' ? t.dashboard.modelConnErrorDesc : t.dashboard.noModelBannerDesc}
+            </div>
+          </div>
+          <a
+            href="#settings"
+            onClick={e => { e.preventDefault(); document.querySelector('[data-nav="settings"]')?.click(); }}
+            style={{
+              flexShrink: 0,
+              alignSelf: 'center',
+              fontSize: '12px',
+              color: noModelMode === 'conn_error' ? '#c07060' : '#c8a060',
+              background: noModelMode === 'conn_error' ? 'rgba(176,80,64,0.12)' : 'rgba(180,140,80,0.12)',
+              border: noModelMode === 'conn_error' ? '1px solid rgba(176,80,64,0.3)' : '1px solid rgba(180,140,80,0.3)',
+              borderRadius: '6px',
+              padding: '6px 14px',
+              cursor: 'pointer',
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+              fontFamily: 'inherit',
+              fontWeight: 500,
+            }}
+          >
+            {t.dashboard.noModelGoSettings} →
+          </a>
         </div>
       )}
 
