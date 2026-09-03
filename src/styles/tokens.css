@@ -1,0 +1,71 @@
+/* ─── CaféPrism Design Tokens ───────────────────────────────────────────── */
+
+:root {
+  /* 品牌核心色譜 (Prism Amber & Roast Spectrum) */
+  --prism-amber-50: #fbf7ee;
+  --prism-amber-100: #f5eed8;
+  --prism-amber-200: #ebd8ab;
+  --prism-amber-300: #dfbe78;
+  --prism-amber-400: #d4a64c;
+  --prism-amber-500: #c8a060; /* 主強調色 Accent */
+  --prism-amber-600: #b5853a;
+  --prism-amber-700: #90642b;
+  --prism-amber-800: #754f24;
+  --prism-amber-900: #603f1f;
+
+  /* 背景色階（深曜沉浸黑） */
+  --prism-bg-darkest: #090907;
+  --prism-bg-dark: #0d0d0b;
+  --prism-bg-surface: #141310;
+  --prism-bg-surface-elevated: #1b1a15;
+  --prism-bg-glass: rgba(18, 17, 14, 0.72);
+  --prism-bg-glass-card: rgba(255, 255, 255, 0.025);
+  --prism-bg-glass-hover: rgba(255, 255, 255, 0.055);
+  --prism-bg-active: rgba(200, 160, 96, 0.12);
+
+  /* 文字色彩階層 */
+  --prism-text-bright: #ffffff;
+  --prism-text-primary: #f0ead8;
+  --prism-text-secondary: #c0b898;
+  --prism-text-muted: #888070;
+  --prism-text-dim: #5a5242;
+
+  /* 邊框與光澤 */
+  --prism-border-subtle: rgba(255, 255, 255, 0.07);
+  --prism-border-medium: rgba(255, 255, 255, 0.14);
+  --prism-border-accent: rgba(200, 160, 96, 0.3);
+  --prism-border-accent-strong: rgba(200, 160, 96, 0.6);
+  --prism-glow-amber: 0 0 20px -4px rgba(200, 160, 96, 0.25);
+  --prism-glow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+
+  /* 語意狀態色 (Semantic Colors) */
+  --prism-success: #4a9967;
+  --prism-success-bg: rgba(74, 153, 103, 0.1);
+  --prism-success-border: rgba(74, 153, 103, 0.25);
+
+  --prism-warning: #c89540;
+  --prism-warning-bg: rgba(200, 149, 64, 0.1);
+  --prism-warning-border: rgba(200, 149, 64, 0.25);
+
+  --prism-danger: #c05040;
+  --prism-danger-bg: rgba(192, 80, 64, 0.1);
+  --prism-danger-border: rgba(192, 80, 64, 0.25);
+
+  --prism-info: #5a88c8;
+  --prism-info-bg: rgba(90, 136, 200, 0.1);
+  --prism-info-border: rgba(90, 136, 200, 0.25);
+
+  /* 圓角半徑 */
+  --prism-radius-sm: 6px;
+  --prism-radius-md: 10px;
+  --prism-radius-lg: 14px;
+  --prism-radius-xl: 20px;
+  --prism-radius-full: 9999px;
+
+  /* 動畫轉場 */
+  --prism-ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --prism-ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --prism-transition-fast: 0.15s var(--prism-ease-smooth);
+  --prism-transition-normal: 0.25s var(--prism-ease-spring);
+  --prism-transition-slow: 0.4s var(--prism-ease-spring);
+}

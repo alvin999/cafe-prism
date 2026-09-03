@@ -16,93 +16,145 @@ export default function History() {
     setHistory([]);
   };
 
-  const confColor = { high: '#4a9967', medium: '#b89040', low: '#b05040' };
+  const confColor = {
+    high: 'var(--prism-success)',
+    medium: 'var(--prism-warning)',
+    low: 'var(--prism-danger)',
+  };
 
   if (history.length === 0) {
     return (
-      <div>
-        <h1 style={{ margin: '0 0 28px', fontSize: '22px', fontWeight: 600, color: '#f0e8d0', letterSpacing: '-0.02em' }}>
+      <div className="animate-fade-in">
+        <h1 className="prism-page-title">
           {t.history.title}
         </h1>
-        <div style={{ textAlign: 'center', padding: '60px 0', color: '#504030' }}>
-          <div style={{ fontSize: '36px', marginBottom: '12px' }}>📋</div>
-          <p style={{ fontSize: '14px' }}>{t.history.empty}</p>
+        <div style={{ textAlign: 'center', padding: '70px 0', color: 'var(--prism-text-dim)' }}>
+          <div style={{ fontSize: '40px', marginBottom: '14px', opacity: 0.8 }}>📋</div>
+          <p style={{ fontSize: '14px', color: 'var(--prism-text-muted)' }}>{t.history.empty}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="animate-fade-in">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
-        <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 600, color: '#f0e8d0', letterSpacing: '-0.02em' }}>
+        <h1 className="prism-page-title" style={{ margin: 0 }}>
           {t.history.title}
         </h1>
         <button
           onClick={clear}
-          style={{
-            background: 'none', border: '1px solid rgba(176,80,64,0.25)',
-            borderRadius: '8px', color: '#805040',
-            padding: '7px 14px', fontSize: '12px',
-            cursor: 'pointer', fontFamily: 'inherit',
-          }}
+          className="prism-btn prism-btn-danger prism-btn-sm"
         >
           {lang === 'zh' ? '清除歷史' : 'Clear history'}
         </button>
       </div>
 
       {history.map((entry, idx) => (
-        <div key={idx} style={{
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          borderRadius: '12px', marginBottom: '12px', overflow: 'hidden',
-        }}>
+        <div
+          key={idx}
+          className="prism-card"
+          style={{
+            padding: 0,
+            marginBottom: '14px',
+            overflow: 'hidden',
+          }}
+        >
           <button
             onClick={() => setExpanded(expanded === idx ? null : idx)}
             style={{
-              width: '100%', background: 'none', border: 'none',
-              padding: '16px 20px', cursor: 'pointer', fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              width: '100%',
+              background: 'transparent',
+              border: 'none',
+              padding: '16px 22px',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
               textAlign: 'left',
+              transition: 'background var(--prism-transition-fast)',
             }}
+            onMouseEnter={e => e.currentTarget.style.background = 'var(--prism-bg-glass-hover)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '13px', color: '#a09070' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '13.5px', color: 'var(--prism-text-primary)', fontWeight: 500 }}>
                 {new Date(entry.date).toLocaleString(lang === 'zh' ? 'zh-TW' : 'en-US')}
               </span>
-              <span style={{ fontSize: '12px', color: '#605040' }}>
+              <span className="prism-badge prism-badge-ghost" style={{ background: 'rgba(255,255,255,0.05)', fontSize: '11px' }}>
                 {entry.cards?.length || 0} {t.history.items}
               </span>
               {/* Mini confidence dots */}
-              <div style={{ display: 'flex', gap: '3px' }}>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                 {(entry.cards || []).slice(0, 6).map((c, i) => (
-                  <span key={i} style={{ width: '6px', height: '6px', borderRadius: '50%', background: confColor[c.confidence] || '#555', display: 'inline-block' }} />
+                  <span
+                    key={i}
+                    style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: confColor[c.confidence] || '#555',
+                      display: 'inline-block'
+                    }}
+                  />
                 ))}
               </div>
             </div>
-            <span style={{ color: '#504030', fontSize: '12px' }}>{expanded === idx ? '▲' : '▶'}</span>
+            <span style={{ color: 'var(--prism-amber-500)', fontSize: '12px' }}>
+              {expanded === idx ? '▲' : '▶'}
+            </span>
           </button>
 
           {expanded === idx && (
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', padding: '16px 20px' }}>
+            <div className="animate-fade-in" style={{
+              borderTop: '1px solid var(--prism-border-subtle)',
+              padding: '18px 22px',
+              background: 'rgba(0, 0, 0, 0.15)'
+            }}>
               {(entry.cards || []).map((card, ci) => (
-                <div key={ci} style={{
-                  marginBottom: '14px', paddingBottom: '14px',
-                  borderBottom: ci < entry.cards.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                }}>
+                <div
+                  key={ci}
+                  style={{
+                    marginBottom: '14px',
+                    paddingBottom: '14px',
+                    borderBottom: ci < entry.cards.length - 1 ? '1px solid var(--prism-border-subtle)' : 'none',
+                  }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: confColor[card.confidence] || '#555', flexShrink: 0 }} />
-                    <span style={{ fontSize: '13px', color: '#c0b090', fontWeight: 500 }}>{card.primaryTitle}</span>
-                    <span style={{ fontSize: '10px', color: '#403020', fontFamily: 'monospace', marginLeft: 'auto' }}>#{card.hash}</span>
+                    <span
+                      style={{
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        background: confColor[card.confidence] || '#555',
+                        flexShrink: 0
+                      }}
+                    />
+                    <span style={{ fontSize: '14px', color: 'var(--prism-text-primary)', fontWeight: 600 }}>
+                      {card.primaryTitle || card.subject || (lang === 'zh' ? '無標題' : 'Untitled')}
+                    </span>
+                    <span style={{ fontSize: '10px', color: 'var(--prism-text-dim)', fontFamily: 'monospace', marginLeft: 'auto' }}>
+                      #{card.hash}
+                    </span>
                   </div>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#706050', lineHeight: 1.6 }}>
-                    {card.summary?.slice(0, 200)}…
+                  <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--prism-text-secondary)', lineHeight: 1.6 }}>
+                    {card.summary?.slice(0, 220)}…
                   </p>
                   {card.articles?.[0]?.link && (
                     <a
                       href={card.articles[0].link}
-                      target="_blank" rel="noopener noreferrer"
-                      style={{ fontSize: '11px', color: '#607090', textDecoration: 'none', marginTop: '4px', display: 'inline-block' }}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: '11.5px',
+                        color: 'var(--prism-info)',
+                        textDecoration: 'none',
+                        marginTop: '6px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
                     >
                       {t.dashboard.viewSource} ↗
                     </a>

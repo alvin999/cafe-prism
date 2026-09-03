@@ -16,4 +16,9 @@ export const Storage = {
     try { return JSON.parse(localStorage.getItem('cr_schedule') || '{}'); } catch { return {}; }
   },
   saveSchedule: (s) => localStorage.setItem('cr_schedule', JSON.stringify(s)),
+  getScheduleMeta: () => {
+    try { return JSON.parse(localStorage.getItem('cr_schedule_meta') || '{}'); } catch { return {}; }
+  },
+  saveScheduleMeta: (meta) => localStorage.setItem('cr_schedule_meta', JSON.stringify(meta)),
 };
+

@@ -1,0 +1,84 @@
+/* ─── CaféPrism Animations & Keyframes ──────────────────────────────────── */
+
+@keyframes prism-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes prism-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes prism-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes prism-pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes prism-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes prism-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: prism-fade-in 0.3s var(--prism-ease-spring) forwards;
+}
+
+.animate-spin {
+  animation: prism-spin 1s linear infinite;
+  display: inline-block;
+}
+
+.animate-pulse {
+  animation: prism-pulse-subtle 2s infinite ease-in-out;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(200, 160, 96, 0.18) 50%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  background-size: 200% 100%;
+  animation: prism-shimmer 2.5s infinite linear;
+}

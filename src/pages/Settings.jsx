@@ -5,12 +5,7 @@ import { Storage, sendTelegram, fetchOllamaModels, fetchGroqModels } from '../li
 function Section({ title, children }) {
   return (
     <div style={{ marginBottom: '32px' }}>
-      <h2 style={{
-        fontSize: '13px', fontWeight: 600, letterSpacing: '0.08em',
-        textTransform: 'uppercase', color: '#806040',
-        margin: '0 0 16px', paddingBottom: '8px',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-      }}>
+      <h2 className="prism-section-title">
         {title}
       </h2>
       {children}
@@ -20,37 +15,16 @@ function Section({ title, children }) {
 
 function Field({ label, hint, children }) {
   return (
-    <div style={{ marginBottom: '16px' }}>
-      <label style={{ display: 'block', fontSize: '13px', color: '#a09070', marginBottom: '6px' }}>
+    <div style={{ marginBottom: '18px' }}>
+      <label style={{ display: 'block', fontSize: '13px', color: 'var(--prism-text-secondary)', marginBottom: '6px', fontWeight: 500 }}>
         {label}
       </label>
       {children}
-      {hint && <p style={{ fontSize: '11px', color: '#504030', margin: '5px 0 0' }}>{hint}</p>}
+      {hint && <p style={{ fontSize: '11.5px', color: 'var(--prism-text-muted)', margin: '5px 0 0', lineHeight: 1.4 }}>{hint}</p>}
     </div>
   );
 }
 
-const theme = {
-  inputBg: 'rgba(255, 255, 255, 0.06)',
-  inputBorder: '1px solid rgba(255, 255, 255, 0.15)',
-  inputColor: '#ffffff',
-  accent: '#c8a060',
-  optionBg: '#1a1814', // 深色背景，確保下拉選單可讀性
-};
-
-const inputStyle = {
-  width: '100%', boxSizing: 'border-box',
-  background: theme.inputBg,
-  border: theme.inputBorder,
-  borderRadius: '8px', padding: '9px 12px',
-  color: theme.inputColor, fontSize: '13px',
-  fontFamily: '"Instrument Sans", system-ui, sans-serif',
-  outline: 'none',
-  transition: 'border-color 0.2s',
-};
-
-const selectStyle = { ...inputStyle, cursor: 'pointer', appearance: 'none' };
-const optionStyle = { background: theme.optionBg, color: theme.inputColor };
 const FALLBACK_MODELS = {
   groq: [
     { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Versatile)' },
@@ -127,7 +101,6 @@ export default function Settings() {
     try {
       const models = await fetchGroqModels(s.apiKey);
       setCloudModels(models);
-      // If current selected model is not in the new list, pick the first one
       if (models.length > 0 && !models.find(m => m.id === s.model)) {
         update('model', models[0].id);
       }
@@ -177,42 +150,31 @@ export default function Settings() {
 
   const Toggle = ({ fieldKey }) => (
     <button
+      type="button"
+      className={`prism-toggle ${s[fieldKey] ? 'is-active' : ''}`}
       onClick={() => update(fieldKey, !s[fieldKey])}
-      style={{
-        width: '36px', height: '20px', borderRadius: '10px', border: 'none',
-        background: s[fieldKey] ? 'rgba(180,140,80,0.5)' : 'rgba(255,255,255,0.1)',
-        cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-      }}
+      aria-label="Toggle"
     >
-      <span style={{
-        position: 'absolute', top: '2px', left: s[fieldKey] ? '16px' : '2px',
-        width: '16px', height: '16px', borderRadius: '50%', background: '#fff',
-        transition: 'left 0.2s',
-      }} />
+      <span className="prism-toggle-thumb" />
     </button>
   );
 
   return (
-    <div>
-      <h1 style={{ margin: '0 0 28px', fontSize: '22px', fontWeight: 600, color: '#f0e8d0', letterSpacing: '-0.02em' }}>
+    <div className="animate-fade-in">
+      <h1 className="prism-page-title">
         {t.settings.title}
       </h1>
 
       {/* AI Model */}
       <Section title={t.settings.modelSection}>
         <Field label={t.settings.modelType}>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '10px' }}>
             {['local', 'cloud'].map(type => (
               <button
                 key={type}
                 onClick={() => update('modelType', type)}
-                style={{
-                  flex: 1, padding: '9px', borderRadius: '8px',
-                  border: s.modelType === type ? '1px solid rgba(180,140,80,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                  background: s.modelType === type ? 'rgba(180,140,80,0.1)' : 'rgba(255,255,255,0.03)',
-                  color: s.modelType === type ? '#c8a060' : '#706050',
-                  fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
-                }}
+                className={`prism-btn ${s.modelType === type ? 'prism-btn-primary' : 'prism-btn-ghost'}`}
+                style={{ flex: 1 }}
               >
                 {type === 'local' ? t.settings.local : t.settings.cloud}
               </button>
@@ -223,28 +185,31 @@ export default function Settings() {
         {s.modelType === 'local' ? (
           <>
             <Field label={t.settings.ollamaUrl}>
-              <input style={inputStyle} value={s.ollamaUrl} onChange={e => update('ollamaUrl', e.target.value)} />
+              <input
+                className="prism-input"
+                value={s.ollamaUrl}
+                onChange={e => update('ollamaUrl', e.target.value)}
+              />
             </Field>
             <Field label={t.settings.ollamaModel}>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <select
-                  style={{ ...selectStyle, flex: 1 }}
+                  className="prism-select"
+                  style={{ flex: 1 }}
                   value={s.ollamaModel}
                   onChange={e => update('ollamaModel', e.target.value)}
                 >
                   {ollamaModels.length > 0 ? (
-                    ollamaModels.map(m => <option key={m} value={m} style={optionStyle}>{m}</option>)
+                    ollamaModels.map(m => <option key={m} value={m}>{m}</option>)
                   ) : (
-                    <option value="" style={optionStyle}>{loadingModels ? '...' : (lang === 'zh' ? '未偵測到模型' : 'No models found')}</option>
+                    <option value="">{loadingModels ? '...' : (lang === 'zh' ? '未偵測到模型' : 'No models found')}</option>
                   )}
-                  <option value={s.ollamaModel} style={optionStyle}>{s.ollamaModel} (手動輸入)</option>
+                  <option value={s.ollamaModel}>{s.ollamaModel} (手動輸入)</option>
                 </select>
                 <button
                   onClick={refreshModels}
-                  style={{
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px', color: '#a09070', padding: '0 12px', cursor: 'pointer'
-                  }}
+                  className="prism-btn prism-btn-ghost"
+                  style={{ padding: '0 16px' }}
                 >
                   ↻
                 </button>
@@ -254,29 +219,33 @@ export default function Settings() {
         ) : (
           <>
             <Field label={t.settings.provider}>
-              <select style={selectStyle} value={s.provider} onChange={e => {
-                const p = e.target.value;
-                update('provider', p);
-                // Auto-select first model from the new provider if possible
-                if (FALLBACK_MODELS[p]) update('model', FALLBACK_MODELS[p][0].id);
-              }}>
-                <option value="groq" style={optionStyle}>Groq (免費額度 / Free tier)</option>
-                <option value="openai" style={optionStyle}>OpenAI</option>
-                <option value="anthropic" style={optionStyle}>Anthropic Claude</option>
+              <select
+                className="prism-select"
+                value={s.provider}
+                onChange={e => {
+                  const p = e.target.value;
+                  update('provider', p);
+                  if (FALLBACK_MODELS[p]) update('model', FALLBACK_MODELS[p][0].id);
+                }}
+              >
+                <option value="groq">Groq (免費額度 / Free tier)</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic Claude</option>
               </select>
             </Field>
             <Field label={t.settings.model}>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <select
-                  style={{ ...selectStyle, flex: 1 }}
+                  className="prism-select"
+                  style={{ flex: 1 }}
                   value={s.model}
                   onChange={e => update('model', e.target.value)}
                 >
                   {s.provider === 'groq' && cloudModels.length > 0 ? (
-                    cloudModels.map(m => <option key={m.id} value={m.id} style={optionStyle}>{m.name}</option>)
+                    cloudModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)
                   ) : (
                     (FALLBACK_MODELS[s.provider] || []).map(m => (
-                      <option key={m.id} value={m.id} style={optionStyle}>{m.name}</option>
+                      <option key={m.id} value={m.id}>{m.name}</option>
                     ))
                   )}
                 </select>
@@ -284,11 +253,8 @@ export default function Settings() {
                   <button
                     onClick={refreshCloudModels}
                     disabled={fetchingCloud || !s.apiKey}
-                    style={{
-                      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                      borderRadius: '8px', color: '#a09070', padding: '0 12px', cursor: 'pointer',
-                      opacity: (fetchingCloud || !s.apiKey) ? 0.5 : 1
-                    }}
+                    className="prism-btn prism-btn-ghost"
+                    style={{ padding: '0 16px' }}
                   >
                     {fetchingCloud ? '...' : '↻'}
                   </button>
@@ -297,8 +263,10 @@ export default function Settings() {
             </Field>
             <Field label={t.settings.apiKey} hint={t.settings.apiKeyHint}>
               <input
-                style={inputStyle} type="password"
-                value={s.apiKey} onChange={e => update('apiKey', e.target.value)}
+                className="prism-input"
+                type="password"
+                value={s.apiKey}
+                onChange={e => update('apiKey', e.target.value)}
                 placeholder="sk-..."
               />
             </Field>
@@ -308,17 +276,18 @@ export default function Settings() {
 
       {/* Sources */}
       <Section title={t.settings.sourcesSection}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
           <Toggle fieldKey="discoveryMode" />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '13px', color: '#a09070' }}>{t.settings.discoveryMode}</span>
-            <span style={{ fontSize: '11px', color: '#504030' }}>{t.settings.discoveryHint}</span>
+            <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)', fontWeight: 500 }}>{t.settings.discoveryMode}</span>
+            <span style={{ fontSize: '11.5px', color: 'var(--prism-text-muted)' }}>{t.settings.discoveryHint}</span>
           </div>
         </div>
 
         <Field label={t.settings.keywords}>
           <input
-            style={{ ...inputStyle, opacity: s.discoveryMode ? 0.4 : 1 }}
+            className="prism-input"
+            style={{ opacity: s.discoveryMode ? 0.4 : 1 }}
             value={s.keywords}
             onChange={e => update('keywords', e.target.value)}
             placeholder="espresso, pour over, roasting..."
@@ -330,9 +299,9 @@ export default function Settings() {
           { key: 'enableNews', label: t.settings.enableNews },
           { key: 'enableReddit', label: t.settings.enableReddit },
         ].map(({ key, label }) => (
-          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
             <Toggle fieldKey={key} />
-            <span style={{ fontSize: '13px', color: '#a09070' }}>{label}</span>
+            <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)' }}>{label}</span>
           </div>
         ))}
       </Section>
@@ -340,14 +309,25 @@ export default function Settings() {
       {/* Telegram */}
       <Section title={t.settings.telegramSection}>
         <Field label={t.settings.botToken} hint={t.settings.telegramHint}>
-          <input style={inputStyle} type="password" value={s.botToken} onChange={e => update('botToken', e.target.value)} placeholder="1234567890:AAF..." />
+          <input
+            className="prism-input"
+            type="password"
+            value={s.botToken}
+            onChange={e => update('botToken', e.target.value)}
+            placeholder="1234567890:AAF..."
+          />
         </Field>
         <Field label={t.settings.chatId}>
-          <input style={inputStyle} value={s.chatId} onChange={e => update('chatId', e.target.value)} placeholder="-100123456789 or @username" />
+          <input
+            className="prism-input"
+            value={s.chatId}
+            onChange={e => update('chatId', e.target.value)}
+            placeholder="-100123456789 or @username"
+          />
         </Field>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
           <Toggle fieldKey="autoTelegram" />
-          <span style={{ fontSize: '13px', color: '#a09070' }}>
+          <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)' }}>
             {lang === 'zh' ? '抓取後自動推送 Telegram' : 'Auto-send to Telegram after fetch'}
           </span>
         </div>
@@ -355,18 +335,14 @@ export default function Settings() {
         <button
           onClick={testTelegram}
           disabled={testing}
-          style={{
-            background: 'rgba(74,153,103,0.1)', border: '1px solid rgba(74,153,103,0.25)',
-            borderRadius: '8px', color: '#4a9967', padding: '9px 18px',
-            fontSize: '13px', fontFamily: 'inherit', cursor: testing ? 'not-allowed' : 'pointer',
-          }}
+          className="prism-btn prism-btn-ghost"
         >
-          {testing ? '…' : t.settings.testTelegram}
+          {testing ? <><span className="animate-spin">⟳</span> {lang === 'zh' ? '傳送中…' : 'Sending…'}</> : t.settings.testTelegram}
         </button>
         {testMsg && (
           <p style={{
-            marginTop: '8px', fontSize: '12px',
-            color: testMsg.startsWith('✓') ? '#4a9967' : '#c07060',
+            marginTop: '10px', fontSize: '12.5px',
+            color: testMsg.startsWith('✓') ? 'var(--prism-success)' : 'var(--prism-danger)',
           }}>{testMsg}</p>
         )}
       </Section>
@@ -374,17 +350,10 @@ export default function Settings() {
       {/* Save */}
       <button
         onClick={save}
-        style={{
-          background: saved ? 'rgba(74,153,103,0.15)' : 'rgba(180,140,80,0.15)',
-          border: `1px solid ${saved ? 'rgba(74,153,103,0.3)' : 'rgba(180,140,80,0.3)'}`,
-          borderRadius: '8px',
-          color: saved ? '#4a9967' : '#c8a060',
-          padding: '10px 28px', fontSize: '14px',
-          fontFamily: 'inherit', fontWeight: 500, cursor: 'pointer',
-          transition: 'all 0.2s',
-        }}
+        className={`prism-btn ${saved ? 'prism-btn-success' : 'prism-btn-primary'}`}
+        style={{ minWidth: '140px', padding: '10px 30px' }}
       >
-        {saved ? t.settings.saved : t.settings.save}
+        {saved ? (lang === 'zh' ? '✓ 已儲存！' : '✓ Saved!') : t.settings.save}
       </button>
     </div>
   );

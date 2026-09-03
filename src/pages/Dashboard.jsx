@@ -19,87 +19,66 @@ export default function Dashboard() {
   } = useDashboard(lang);
 
   return (
-    <div>
+    <div className="animate-fade-in">
       {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 600, color: '#f0e8d0', letterSpacing: '-0.02em' }}>
+          <h1 className="prism-page-title" style={{ margin: 0 }}>
             {t.dashboard.title}
           </h1>
           {lastRun && (
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#504838' }}>
+            <p style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--prism-text-muted)' }}>
               {t.dashboard.lastRun}: {lastRun}
             </p>
           )}
         </div>
-        <button
-          onClick={run}
-          disabled={running}
-          style={{
-            background: running ? 'rgba(180,140,80,0.1)' : 'rgba(180,140,80,0.15)',
-            border: '1px solid rgba(180,140,80,0.3)',
-            borderRadius: '8px',
-            color: running ? '#806040' : '#c8a060',
-            padding: '9px 20px',
-            fontSize: '13px',
-            fontFamily: 'inherit',
-            fontWeight: 500,
-            cursor: running ? 'not-allowed' : 'pointer',
-            transition: 'all 0.2s',
-            display: 'flex', alignItems: 'center', gap: '8px',
-          }}
-        >
-          {running ? (
-            <><span style={{ animation: 'spin 1s linear infinite', display: 'inline-block' }}>⟳</span> {t.dashboard.running}</>
-          ) : (
-            <>{t.dashboard.runNow}</>
-          )}
-        </button>
 
-        {cards.length > 0 && !running && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
-            onClick={handleManualPush}
-            style={{
-              background: 'rgba(74,153,103,0.1)',
-              border: '1px solid rgba(74,153,103,0.3)',
-              borderRadius: '8px',
-              color: '#4a9967',
-              padding: '9px 20px',
-              fontSize: '13px',
-              fontFamily: 'inherit',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              display: 'flex', alignItems: 'center', gap: '8px',
-              marginLeft: '12px'
-            }}
+            onClick={run}
+            disabled={running}
+            className="prism-btn prism-btn-primary"
           >
-            ✈ {t.dashboard.pushToTelegram}
+            {running ? (
+              <><span className="animate-spin">⟳</span> {t.dashboard.running}</>
+            ) : (
+              <>{t.dashboard.runNow}</>
+            )}
           </button>
-        )}
+
+          {cards.length > 0 && !running && (
+            <button
+              onClick={handleManualPush}
+              className="prism-btn prism-btn-success"
+            >
+              ✈ {t.dashboard.pushToTelegram}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Legend */}
-      <div style={{
-        background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-        borderRadius: '10px', padding: '14px 18px', marginBottom: '24px',
-        display: 'flex', gap: '20px', flexWrap: 'wrap',
+      <div className="prism-card" style={{
+        padding: '14px 20px',
+        marginBottom: '24px',
+        display: 'flex',
+        gap: '20px',
+        flexWrap: 'wrap',
+        alignItems: 'center'
       }}>
-        <span style={{ fontSize: '12px', color: '#604830', fontWeight: 500 }}>
+        <span style={{ fontSize: '12px', color: 'var(--prism-amber-600)', fontWeight: 600 }}>
           {lang === 'zh' ? '信心分數說明' : 'Confidence legend'}:
         </span>
         {[
-          { level: 'high', icon: '●', label: lang === 'zh' ? '高：多來源交叉驗證' : 'High: multi-source verified' },
-          { level: 'medium', icon: '◉', label: lang === 'zh' ? '中：單一來源' : 'Medium: single source' },
-          { level: 'low', icon: '○', label: lang === 'zh' ? '低：請謹慎參考' : 'Low: treat with caution' },
+          { level: 'high', icon: '●', label: lang === 'zh' ? '高：多來源交叉驗證' : 'High: multi-source verified', color: 'var(--prism-success)' },
+          { level: 'medium', icon: '◉', label: lang === 'zh' ? '中：單一來源' : 'Medium: single source', color: 'var(--prism-warning)' },
+          { level: 'low', icon: '○', label: lang === 'zh' ? '低：請謹慎參考' : 'Low: treat with caution', color: 'var(--prism-danger)' },
         ].map(cfg => (
-          <span key={cfg.level} style={{ fontSize: '12px', color: '#807060' }}>
-            <span style={{ color: cfg.level === 'high' ? '#4a9967' : cfg.level === 'medium' ? '#b89040' : '#b05040' }}>
-              {cfg.icon}
-            </span> {cfg.label}
+          <span key={cfg.level} style={{ fontSize: '12px', color: 'var(--prism-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+            <span style={{ color: cfg.color }}>{cfg.icon}</span> {cfg.label}
           </span>
         ))}
-        <span style={{ fontSize: '12px', color: '#807060' }}>
+        <span style={{ fontSize: '12px', color: 'var(--prism-text-muted)', marginLeft: 'auto' }}>
           ⚠ = {lang === 'zh' ? '不確定句子' : 'uncertain claim'}
         </span>
       </div>
@@ -109,10 +88,14 @@ export default function Dashboard() {
 
       {/* Error */}
       {error && (
-        <div style={{
-          background: 'rgba(176,80,64,0.08)', border: '1px solid rgba(176,80,64,0.2)',
-          borderRadius: '8px', padding: '12px 16px', marginBottom: '20px',
-          fontSize: '13px', color: '#c07060',
+        <div className="prism-badge prism-badge-danger animate-fade-in" style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          padding: '12px 18px',
+          marginBottom: '20px',
+          fontSize: '13px',
+          borderRadius: 'var(--prism-radius-md)',
+          display: 'block'
         }}>
           ⚠ {error}
         </div>
@@ -120,23 +103,26 @@ export default function Dashboard() {
 
       {/* Telegram sent */}
       {sentTelegram && (
-        <div style={{
-          background: 'rgba(74,153,103,0.08)', border: '1px solid rgba(74,153,103,0.2)',
-          borderRadius: '8px', padding: '12px 16px', marginBottom: '20px',
-          fontSize: '13px', color: '#4a9967',
+        <div className="prism-badge prism-badge-success animate-fade-in" style={{
+          width: '100%',
+          boxSizing: 'border-box',
+          padding: '12px 18px',
+          marginBottom: '20px',
+          fontSize: '13px',
+          borderRadius: 'var(--prism-radius-md)',
+          display: 'block'
         }}>
-          ✓ {lang === 'zh' ? '已推送至 Telegram' : 'Sent to Telegram'}
+          ✓ {lang === 'zh' ? '已成功推送至 Telegram' : 'Sent to Telegram'}
         </div>
       )}
 
       {/* No-Model / Connection Error Reminder Banner */}
       {noModelMode && cards.length > 0 && !running && (
-        <div style={{
-          background: noModelMode === 'conn_error' ? 'rgba(176,80,64,0.07)' : 'rgba(180,140,80,0.07)',
-          border: noModelMode === 'conn_error' ? '1px solid rgba(176,80,64,0.28)' : '1px solid rgba(180,140,80,0.28)',
-          borderRadius: '10px',
+        <div className="prism-card animate-fade-in" style={{
+          borderColor: noModelMode === 'conn_error' ? 'var(--prism-danger-border)' : 'var(--prism-warning-border)',
+          background: noModelMode === 'conn_error' ? 'var(--prism-danger-bg)' : 'var(--prism-warning-bg)',
           padding: '16px 20px',
-          marginBottom: '20px',
+          marginBottom: '24px',
           display: 'flex',
           alignItems: 'flex-start',
           gap: '14px',
@@ -145,17 +131,18 @@ export default function Dashboard() {
             {noModelMode === 'conn_error' ? '⚠️' : '🔌'}
           </span>
           <div style={{ flex: 1 }}>
-            <div style={{ 
-              fontWeight: 600, 
-              color: noModelMode === 'conn_error' ? '#c07060' : '#c8a060', 
-              fontSize: '14px', marginBottom: '5px' 
+            <div style={{
+              fontWeight: 600,
+              color: noModelMode === 'conn_error' ? 'var(--prism-danger)' : 'var(--prism-amber-400)',
+              fontSize: '14px',
+              marginBottom: '5px'
             }}>
               {noModelMode === 'conn_error' ? t.dashboard.modelConnErrorTitle : t.dashboard.noModelBannerTitle}
             </div>
-            <div style={{ 
-              fontSize: '12.5px', 
-              color: noModelMode === 'conn_error' ? '#a07060' : '#907850', 
-              lineHeight: 1.7 
+            <div style={{
+              fontSize: '12.5px',
+              color: 'var(--prism-text-secondary)',
+              lineHeight: 1.7
             }}>
               {noModelMode === 'conn_error' ? t.dashboard.modelConnErrorDesc : t.dashboard.noModelBannerDesc}
             </div>
@@ -163,20 +150,11 @@ export default function Dashboard() {
           <a
             href="#settings"
             onClick={e => { e.preventDefault(); document.querySelector('[data-nav="settings"]')?.click(); }}
+            className={`prism-btn prism-btn-sm ${noModelMode === 'conn_error' ? 'prism-btn-danger' : 'prism-btn-primary'}`}
             style={{
               flexShrink: 0,
               alignSelf: 'center',
-              fontSize: '12px',
-              color: noModelMode === 'conn_error' ? '#c07060' : '#c8a060',
-              background: noModelMode === 'conn_error' ? 'rgba(176,80,64,0.12)' : 'rgba(180,140,80,0.12)',
-              border: noModelMode === 'conn_error' ? '1px solid rgba(176,80,64,0.3)' : '1px solid rgba(180,140,80,0.3)',
-              borderRadius: '6px',
-              padding: '6px 14px',
-              cursor: 'pointer',
               textDecoration: 'none',
-              whiteSpace: 'nowrap',
-              fontFamily: 'inherit',
-              fontWeight: 500,
             }}
           >
             {t.dashboard.noModelGoSettings} →
@@ -186,34 +164,37 @@ export default function Dashboard() {
 
       {/* Cards Display */}
       {cards.length === 0 && !running && (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: '#504030' }}>
-          <div style={{ fontSize: '40px', marginBottom: '16px' }}>☕</div>
-          <p style={{ fontSize: '14px' }}>{t.dashboard.noResults}</p>
+        <div style={{ textAlign: 'center', padding: '70px 0', color: 'var(--prism-text-dim)' }}>
+          <div style={{ fontSize: '44px', marginBottom: '16px', opacity: 0.8 }}>☕</div>
+          <p style={{ fontSize: '14px', color: 'var(--prism-text-muted)' }}>{t.dashboard.noResults}</p>
         </div>
       )}
 
       {/* Group cards by source */}
       {(() => {
         if (cards.length === 0) return null;
-        
+
         const papers = cards.filter(c => c.articles.some(a => a.source === 'semantic_scholar'));
         const reddits = cards.filter(c => !c.articles.some(a => a.source === 'semantic_scholar') && c.articles.some(a => a.source === 'reddit'));
         const news = cards.filter(c => !c.articles.some(a => a.source === 'semantic_scholar') && !c.articles.some(a => a.source === 'reddit'));
-        
+
         const renderSection = (title, items, icon) => {
           if (items.length === 0) return null;
           return (
-            <div style={{ marginBottom: '32px' }}>
-              <div style={{ 
-                display: 'flex', alignItems: 'center', gap: '8px', 
-                marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', 
+            <div style={{ marginBottom: '36px' }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '16px',
+                borderBottom: '1px solid var(--prism-border-subtle)',
                 paddingBottom: '8px'
               }}>
-                <span style={{ fontSize: '20px' }}>{icon}</span>
-                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: '#e8d8b8' }}>
+                <span style={{ fontSize: '18px' }}>{icon}</span>
+                <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--prism-text-primary)' }}>
                   {title}
                 </h2>
-                <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#807060', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '12px' }}>
+                <span className="prism-badge prism-badge-ghost" style={{ marginLeft: 'auto', background: 'var(--prism-bg-glass-card)' }}>
                   {items.length} 篇
                 </span>
               </div>
@@ -230,10 +211,6 @@ export default function Dashboard() {
           </div>
         );
       })()}
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
     </div>
   );
 }

@@ -1,0 +1,183 @@
+/* ─── CaféPrism Layout & Responsive Grid ────────────────────────────────── */
+
+.prism-app {
+  min-height: 100vh;
+  background: var(--prism-bg-dark);
+  color: var(--prism-text-primary);
+  font-family: "Instrument Sans", "Noto Sans TC", system-ui, -apple-system, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.prism-header {
+  height: 54px;
+  border-bottom: 1px solid var(--prism-border-subtle);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--prism-glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.prism-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.prism-header-title {
+  font-weight: 600;
+  font-size: 15.5px;
+  letter-spacing: -0.01em;
+  color: var(--prism-text-primary);
+}
+
+.prism-header-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 20px;
+  background: rgba(200, 160, 96, 0.12);
+  color: var(--prism-amber-500);
+  border: 1px solid var(--prism-border-accent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Body & Sidebar */
+.prism-body {
+  display: flex;
+  flex: 1;
+}
+
+.prism-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--prism-border-subtle);
+  padding: 20px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: sticky;
+  top: 54px;
+  height: calc(100vh - 54px);
+  background: rgba(13, 13, 11, 0.5);
+  box-sizing: border-box;
+}
+
+.prism-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--prism-radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--prism-text-muted);
+  font-size: 13.5px;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 400;
+  text-align: left;
+  transition: all var(--prism-transition-fast);
+  width: 100%;
+  outline: none;
+}
+
+.prism-nav-btn:hover {
+  color: var(--prism-text-secondary);
+  background: var(--prism-bg-glass-hover);
+}
+
+.prism-nav-btn.is-active {
+  background: var(--prism-bg-active);
+  color: var(--prism-amber-500);
+  border-color: rgba(200, 160, 96, 0.2);
+  font-weight: 500;
+}
+
+.prism-nav-btn-icon {
+  display: flex;
+  align-items: center;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.prism-nav-btn.is-active .prism-nav-btn-icon {
+  color: var(--prism-amber-500);
+  opacity: 1;
+}
+
+.prism-sidebar-footer {
+  margin-top: auto;
+  padding: 14px 8px 4px;
+  border-top: 1px solid var(--prism-border-subtle);
+}
+
+.prism-sidebar-footer-text {
+  font-size: 11px;
+  color: var(--prism-text-dim);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Main Area */
+.prism-main {
+  flex: 1;
+  padding: 36px 48px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  max-width: 1200px;
+}
+
+/* Page Typography */
+.prism-page-title {
+  margin: 0 0 28px;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--prism-text-primary);
+  letter-spacing: -0.02em;
+}
+
+.prism-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--prism-amber-700);
+  margin: 0 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--prism-border-subtle);
+}
+
+/* Mobile & Tablet RWD */
+@media (max-width: 860px) {
+  .prism-body {
+    flex-direction: column;
+  }
+
+  .prism-sidebar {
+    width: 100%;
+    height: auto;
+    position: static;
+    flex-direction: row;
+    padding: 8px 12px;
+    border-right: none;
+    border-bottom: 1px solid var(--prism-border-subtle);
+    overflow-x: auto;
+  }
+
+  .prism-sidebar-footer {
+    display: none;
+  }
+
+  .prism-main {
+    padding: 20px 16px;
+  }
+}

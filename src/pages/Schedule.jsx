@@ -1,21 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../App.jsx';
-import { Storage, runResearchPipeline, sendTelegram, formatTelegramMessage } from '../lib/engine.js';
-
-function computeNextRun(hour, frequency, dayOfWeek) {
-  const now = new Date();
-  const next = new Date();
-  next.setHours(hour, 0, 0, 0);
-  if (frequency === 'daily') {
-    if (next <= now) next.setDate(next.getDate() + 1);
-  } else {
-    // weekly
-    const diff = (dayOfWeek - now.getDay() + 7) % 7 || 7;
-    next.setDate(now.getDate() + diff);
-    if (diff === 7 && next <= now) next.setDate(next.getDate() + 7);
-  }
-  return next;
-}
+import { Storage, computeNextRun, executeScheduledTask } from '../lib/engine.js';
 
 export default function Schedule() {
   const { t, lang } = useLang();
@@ -29,45 +14,37 @@ export default function Schedule() {
   });
   const [newKeyword, setNewKeyword] = useState('');
   const [saved, setSaved] = useState(false);
-  const [nextRun, setNextRun] = useState(null);
-  const [timerId, setTimerId] = useState(null);
+  const [meta, setMeta] = useState({});
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     const stored = Storage.getSchedule();
-    if (Object.keys(stored).length > 0) setSched(prev => ({ ...prev, ...stored }));
+    if (Object.keys(stored).length > 0) {
+      setSched(prev => ({ ...prev, ...stored }));
+    }
+    setMeta(Storage.getScheduleMeta());
   }, []);
 
-  useEffect(() => {
-    if (sched.enabled) {
-      const next = computeNextRun(sched.hour, sched.frequency, sched.dayOfWeek);
-      setNextRun(next);
-      const ms = next - new Date();
-      const id = setTimeout(() => triggerScheduledRun(), ms);
-      setTimerId(id);
-      return () => clearTimeout(id);
-    } else {
-      setNextRun(null);
-    }
-  }, [sched.enabled, sched.hour, sched.frequency, sched.dayOfWeek]);
-
-  const triggerScheduledRun = async () => {
-    const settings = Storage.getSettings();
-    try {
-      const cards = await runResearchPipeline({ ...settings, language: lang }, () => {});
-      Storage.addHistory(cards);
-      if (sched.notifyTelegram && settings.botToken && settings.chatId) {
-        const msg = formatTelegramMessage(cards, lang);
-        await sendTelegram(settings.botToken, settings.chatId, msg);
-      }
-    } catch (e) {
-      console.error('Scheduled run failed:', e);
-    }
-  };
+  const nextRun = sched.enabled
+    ? computeNextRun(sched.hour, sched.frequency, sched.dayOfWeek)
+    : null;
 
   const save = () => {
     Storage.saveSchedule(sched);
+    // 廣播給全域排程器即時生效
+    window.dispatchEvent(new CustomEvent('cr:schedule-updated'));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const runTestNow = async () => {
+    setTesting(true);
+    try {
+      await executeScheduledTask(false);
+      setMeta(Storage.getScheduleMeta());
+    } finally {
+      setTesting(false);
+    }
   };
 
   const update = (key, val) => setSched(prev => ({ ...prev, [key]: val }));
@@ -83,48 +60,50 @@ export default function Schedule() {
 
   const Toggle = ({ fieldKey }) => (
     <button
+      type="button"
+      className={`prism-toggle ${sched[fieldKey] ? 'is-active' : ''}`}
       onClick={() => update(fieldKey, !sched[fieldKey])}
-      style={{
-        width: '36px', height: '20px', borderRadius: '10px', border: 'none',
-        background: sched[fieldKey] ? 'rgba(180,140,80,0.5)' : 'rgba(255,255,255,0.1)',
-        cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0,
-      }}
+      aria-label="Toggle"
     >
-      <span style={{
-        position: 'absolute', top: '2px', left: sched[fieldKey] ? '16px' : '2px',
-        width: '16px', height: '16px', borderRadius: '50%', background: '#fff',
-        transition: 'left 0.2s',
-      }} />
+      <span className="prism-toggle-thumb" />
     </button>
   );
-
-  const inputStyle = {
-    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '8px', padding: '9px 12px', color: '#d0c8b0', fontSize: '13px',
-    fontFamily: 'inherit', outline: 'none',
-  };
 
   const days = lang === 'zh'
     ? ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
     : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <div>
-      <h1 style={{ margin: '0 0 28px', fontSize: '22px', fontWeight: 600, color: '#f0e8d0', letterSpacing: '-0.02em' }}>
+    <div className="animate-fade-in">
+      <h1 className="prism-page-title">
         {t.schedule.title}
       </h1>
 
-      {/* Enable */}
-      <div style={{
-        background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)',
-        borderRadius: '12px', padding: '20px 24px', marginBottom: '24px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      {/* Enable Card */}
+      <div className="prism-card prism-card-highlight" style={{
+        marginBottom: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
       }}>
         <div>
-          <p style={{ margin: 0, fontSize: '14px', color: '#c0b898', fontWeight: 500 }}>{t.schedule.enabled}</p>
-          {nextRun && (
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#605040' }}>
-              {t.schedule.nextRun}: {nextRun.toLocaleString()}
+          <p style={{ margin: 0, fontSize: '15px', color: 'var(--prism-text-primary)', fontWeight: 600 }}>
+            {t.schedule.enabled}
+          </p>
+          {nextRun ? (
+            <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: 'var(--prism-amber-500)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🕒</span> {t.schedule.nextRun}: <strong>{nextRun.toLocaleString(lang === 'zh' ? 'zh-TW' : 'en-US')}</strong>
+            </p>
+          ) : (
+            <p style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--prism-text-muted)' }}>
+              {lang === 'zh' ? '排程已關閉' : 'Schedule disabled'}
+            </p>
+          )}
+
+          {meta.lastRunTimestamp && (
+            <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: 'var(--prism-text-dim)' }}>
+              {lang === 'zh' ? '上次執行' : 'Last run'}: {new Date(meta.lastRunTimestamp).toLocaleString(lang === 'zh' ? 'zh-TW' : 'en-US')}
+              {meta.lastRunType === 'catch_up' && <span className="prism-badge prism-badge-amber" style={{ marginLeft: '6px', fontSize: '10px' }}>{lang === 'zh' ? '延遲補跑' : 'Catch-up'}</span>}
             </p>
           )}
         </div>
@@ -132,22 +111,16 @@ export default function Schedule() {
       </div>
 
       {/* Frequency */}
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'block', fontSize: '13px', color: '#a09070', marginBottom: '8px' }}>
+      <div style={{ marginBottom: '24px' }}>
+        <label style={{ display: 'block', fontSize: '13px', color: 'var(--prism-text-secondary)', marginBottom: '8px' }}>
           {t.schedule.frequency}
         </label>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
           {['daily', 'weekly'].map(f => (
             <button
               key={f}
               onClick={() => update('frequency', f)}
-              style={{
-                padding: '9px 20px', borderRadius: '8px',
-                border: sched.frequency === f ? '1px solid rgba(180,140,80,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                background: sched.frequency === f ? 'rgba(180,140,80,0.1)' : 'rgba(255,255,255,0.03)',
-                color: sched.frequency === f ? '#c8a060' : '#706050',
-                fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
-              }}
+              className={`prism-btn ${sched.frequency === f ? 'prism-btn-primary' : 'prism-btn-ghost'}`}
             >
               {f === 'daily' ? t.schedule.daily : t.schedule.weekly}
             </button>
@@ -156,39 +129,38 @@ export default function Schedule() {
       </div>
 
       {/* Hour */}
-      <div style={{ marginBottom: '20px' }}>
-        <label style={{ display: 'block', fontSize: '13px', color: '#a09070', marginBottom: '8px' }}>
-          {t.schedule.time}: <span style={{ color: '#c8a060', fontWeight: 500 }}>{String(sched.hour).padStart(2, '0')}:00</span>
+      <div style={{ marginBottom: '24px' }}>
+        <label style={{ display: 'block', fontSize: '13px', color: 'var(--prism-text-secondary)', marginBottom: '8px' }}>
+          {t.schedule.time}: <strong style={{ color: 'var(--prism-amber-400)' }}>{String(sched.hour).padStart(2, '0')}:00</strong>
         </label>
         <input
-          type="range" min="0" max="23" value={sched.hour}
+          type="range"
+          min="0"
+          max="23"
+          value={sched.hour}
           onChange={e => update('hour', Number(e.target.value))}
-          style={{ width: '100%', accentColor: '#c8a060' }}
+          style={{ width: '100%', accentColor: 'var(--prism-amber-500)', cursor: 'pointer' }}
         />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#504030', marginTop: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--prism-text-dim)', marginTop: '6px' }}>
           <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
         </div>
       </div>
 
       {/* Day of week (weekly only) */}
       {sched.frequency === 'weekly' && (
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', fontSize: '13px', color: '#a09070', marginBottom: '8px' }}>
+        <div style={{ marginBottom: '24px' }} className="animate-fade-in">
+          <label style={{ display: 'block', fontSize: '13px', color: 'var(--prism-text-secondary)', marginBottom: '8px' }}>
             {lang === 'zh' ? '執行日' : 'Day'}
           </label>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {days.map((d, i) => (
               <button
                 key={i}
                 onClick={() => update('dayOfWeek', i)}
-                style={{
-                  padding: '7px 12px', borderRadius: '8px', fontSize: '12px',
-                  border: sched.dayOfWeek === i ? '1px solid rgba(180,140,80,0.4)' : '1px solid rgba(255,255,255,0.08)',
-                  background: sched.dayOfWeek === i ? 'rgba(180,140,80,0.1)' : 'rgba(255,255,255,0.03)',
-                  color: sched.dayOfWeek === i ? '#c8a060' : '#706050',
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}
-              >{d}</button>
+                className={`prism-btn prism-btn-sm ${sched.dayOfWeek === i ? 'prism-btn-primary' : 'prism-btn-ghost'}`}
+              >
+                {d}
+              </button>
             ))}
           </div>
         </div>
@@ -197,27 +169,26 @@ export default function Schedule() {
       {/* Telegram notify */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
         <Toggle fieldKey="notifyTelegram" />
-        <span style={{ fontSize: '13px', color: '#a09070' }}>{t.schedule.notifyTelegram}</span>
+        <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)' }}>
+          {t.schedule.notifyTelegram}
+        </span>
       </div>
 
       {/* Keyword subscriptions */}
-      <div style={{ marginBottom: '28px' }}>
-        <h2 style={{
-          fontSize: '13px', fontWeight: 600, letterSpacing: '0.08em',
-          textTransform: 'uppercase', color: '#806040',
-          margin: '0 0 14px', paddingBottom: '8px',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-        }}>
+      <div style={{ marginBottom: '32px' }}>
+        <h2 className="prism-section-title">
           {lang === 'zh' ? '論文關鍵字訂閱' : 'Paper keyword subscriptions'}
         </h2>
-        <p style={{ fontSize: '12px', color: '#504030', marginBottom: '12px' }}>
+        <p style={{ fontSize: '12.5px', color: 'var(--prism-text-muted)', marginBottom: '14px' }}>
           {lang === 'zh'
             ? '新論文符合以下關鍵字時，自動發送 Telegram 通知'
             : 'Receive Telegram alerts when new papers match these keywords'}
         </p>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
           <input
-            style={{ ...inputStyle, flex: 1 }}
+            className="prism-input"
+            style={{ flex: 1 }}
             value={newKeyword}
             onChange={e => setNewKeyword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addKeyword()}
@@ -225,50 +196,65 @@ export default function Schedule() {
           />
           <button
             onClick={addKeyword}
-            style={{
-              background: 'rgba(180,140,80,0.1)', border: '1px solid rgba(180,140,80,0.25)',
-              borderRadius: '8px', color: '#c8a060', padding: '9px 16px',
-              fontSize: '13px', cursor: 'pointer', fontFamily: 'inherit',
-            }}
-          >+</button>
+            className="prism-btn prism-btn-primary"
+            style={{ padding: '0 20px', fontSize: '16px' }}
+          >
+            +
+          </button>
         </div>
+
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
           {sched.subscriptions.map(kw => (
-            <span key={kw} style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              background: 'rgba(128,100,64,0.12)', border: '1px solid rgba(128,100,64,0.25)',
-              borderRadius: '20px', padding: '4px 12px',
-              fontSize: '12px', color: '#a08050',
-            }}>
+            <span key={kw} className="prism-badge prism-badge-amber" style={{ padding: '5px 12px', fontSize: '12px' }}>
               {kw}
               <button
                 onClick={() => removeKeyword(kw)}
-                style={{ background: 'none', border: 'none', color: '#604030', cursor: 'pointer', padding: 0, fontSize: '14px', lineHeight: 1 }}
-              >×</button>
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--prism-amber-700)',
+                  cursor: 'pointer',
+                  padding: '0 0 0 4px',
+                  fontSize: '14px',
+                  lineHeight: 1
+                }}
+              >
+                ×
+              </button>
             </span>
           ))}
           {sched.subscriptions.length === 0 && (
-            <span style={{ fontSize: '12px', color: '#403020' }}>
+            <span style={{ fontSize: '12.5px', color: 'var(--prism-text-dim)' }}>
               {lang === 'zh' ? '尚無訂閱關鍵字' : 'No keyword subscriptions yet'}
             </span>
           )}
         </div>
       </div>
 
-      <button
-        onClick={save}
-        style={{
-          background: saved ? 'rgba(74,153,103,0.15)' : 'rgba(180,140,80,0.15)',
-          border: `1px solid ${saved ? 'rgba(74,153,103,0.3)' : 'rgba(180,140,80,0.3)'}`,
-          borderRadius: '8px',
-          color: saved ? '#4a9967' : '#c8a060',
-          padding: '10px 28px', fontSize: '14px',
-          fontFamily: 'inherit', fontWeight: 500, cursor: 'pointer',
-          transition: 'all 0.2s',
-        }}
-      >
-        {saved ? (lang === 'zh' ? '已儲存！' : 'Saved!') : (lang === 'zh' ? '儲存排程' : 'Save schedule')}
-      </button>
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <button
+          onClick={save}
+          className={`prism-btn ${saved ? 'prism-btn-success' : 'prism-btn-primary'}`}
+          style={{ minWidth: '130px' }}
+        >
+          {saved ? (lang === 'zh' ? '✓ 已儲存！' : '✓ Saved!') : (lang === 'zh' ? '儲存排程' : 'Save schedule')}
+        </button>
+
+        {sched.enabled && (
+          <button
+            onClick={runTestNow}
+            disabled={testing}
+            className="prism-btn prism-btn-ghost"
+          >
+            {testing ? (
+              <><span className="animate-spin">⟳</span> {lang === 'zh' ? '測試中…' : 'Testing…'}</>
+            ) : (
+              <>{lang === 'zh' ? '立即手動測試排程' : 'Test schedule run'}</>
+            )}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

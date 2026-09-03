@@ -1,6 +1,7 @@
 import { useState, createContext, useContext, useEffect } from 'react';
 import { translations } from './i18n/translations.js';
 import { Storage } from './lib/engine.js';
+import { useGlobalScheduler } from './hooks/useGlobalScheduler.js';
 import Dashboard from './pages/Dashboard.jsx';
 import Settings from './pages/Settings.jsx';
 import Schedule from './pages/Schedule.jsx';
@@ -45,6 +46,9 @@ export default function App() {
   const [page, setPage] = useState('dashboard');
   const t = translations[lang];
 
+  // 全域輕量排程生命週期管理
+  const schedulerStatus = useGlobalScheduler();
+
   useEffect(() => {
     const s = Storage.getSettings();
     Storage.saveSettings({ ...s, language: lang });
@@ -55,119 +59,65 @@ export default function App() {
 
   return (
     <LangContext.Provider value={{ lang, t, setLang }}>
-      <div style={{
-        minHeight: '100vh',
-        background: '#0d0d0b',
-        color: '#e8e4d8',
-        fontFamily: '"Instrument Sans", "Noto Sans TC", system-ui, sans-serif',
-        display: 'flex',
-        flexDirection: 'column',
-      }}>
+      <div className="prism-app">
         {/* Top bar */}
-        <header style={{
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
-          padding: '0 24px',
-          height: '52px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-          background: 'rgba(13,13,11,0.92)',
-          backdropFilter: 'blur(12px)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <header className="prism-header">
+          <div className="prism-header-brand">
             <span style={{ fontSize: '20px' }}>🔮</span>
-            <span style={{ fontWeight: 600, fontSize: '15px', letterSpacing: '-0.01em', color: '#f0ead8' }}>
-              CaféPrism
-            </span>
-            <span style={{
-              fontSize: '10px',
-              padding: '2px 7px',
-              borderRadius: '20px',
-              background: 'rgba(180,140,80,0.15)',
-              color: '#b49050',
-              border: '1px solid rgba(180,140,80,0.25)',
-              letterSpacing: '0.05em',
-              textTransform: 'uppercase',
-              fontWeight: 500,
-            }}>Beta</span>
+            <span className="prism-header-title">CaféPrism</span>
+            <span className="prism-header-badge">Beta</span>
+            {schedulerStatus.running && (
+              <span className="prism-badge prism-badge-amber animate-pulse" style={{ fontSize: '11px', marginLeft: '6px' }}>
+                <span className="animate-spin">⟳</span>
+                {schedulerStatus.isCatchUp ? (lang === 'zh' ? '背景補跑中…' : 'Catching up…') : (lang === 'zh' ? '排程執行中…' : 'Scheduled run…')}
+              </span>
+            )}
           </div>
 
           {/* Lang toggle */}
           <button
+            className="prism-btn prism-btn-ghost prism-btn-sm"
             onClick={() => setLang(l => l === 'zh' ? 'en' : 'zh')}
-            style={{
-              background: 'rgba(255,255,255,0.06)',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '6px',
-              color: '#b0a890',
-              padding: '4px 12px',
-              fontSize: '12px',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              letterSpacing: '0.03em',
-            }}
           >
             {lang === 'zh' ? 'EN' : '中文'}
           </button>
         </header>
 
-        <div style={{ display: 'flex', flex: 1 }}>
+        <div className="prism-body">
           {/* Sidebar */}
-          <nav style={{
-            width: '200px',
-            flexShrink: 0,
-            borderRight: '1px solid rgba(255,255,255,0.07)',
-            padding: '20px 12px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '2px',
-            position: 'sticky',
-            top: '52px',
-            height: 'calc(100vh - 52px)',
-          }}>
+          <nav className="prism-sidebar">
             {Object.keys(pages).map(key => (
               <button
                 key={key}
                 data-nav={key}
                 onClick={() => setPage(key)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: page === key ? 'rgba(180,140,80,0.12)' : 'transparent',
-                  color: page === key ? '#c8a660' : '#888070',
-                  fontSize: '13.5px',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  fontWeight: page === key ? 500 : 400,
-                  textAlign: 'left',
-                  transition: 'all 0.15s',
-                  width: '100%',
-                }}
+                className={`prism-nav-btn ${page === key ? 'is-active' : ''}`}
               >
-                <span style={{ color: page === key ? '#c8a660' : '#666050' }}>{NAV_ICONS[key]}</span>
+                <span className="prism-nav-btn-icon">{NAV_ICONS[key]}</span>
                 {t.nav[key]}
               </button>
             ))}
 
-            <div style={{ marginTop: 'auto', padding: '12px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <p style={{ fontSize: '10px', color: '#504838', lineHeight: 1.5, margin: 0 }}>
+            <div className="prism-sidebar-footer">
+              <p className="prism-sidebar-footer-text">
                 {lang === 'zh' ? '金鑰僅存於本機\n絕不上傳至伺服器' : 'Keys stored locally\nNever sent to servers'}
               </p>
             </div>
           </nav>
 
           {/* Main content */}
-          <main style={{ flex: 1, padding: '32px 48px', overflowY: 'auto' }}>
+          <main className="prism-main">
             <PageComponent />
           </main>
         </div>
+
+        {/* Global Toast */}
+        {schedulerStatus.toastMessage && (
+          <div className="prism-toast">
+            <span>✨</span>
+            <span>{schedulerStatus.toastMessage}</span>
+          </div>
+        )}
       </div>
     </LangContext.Provider>
   );
