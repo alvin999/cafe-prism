@@ -264,3 +264,30 @@
   align-items: center;
   gap: 10px;
 }
+
+/* Modal Dialogs */
+.prism-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(8, 7, 6, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: prism-fade-in 0.2s ease-out;
+}
+
+.prism-modal-box {
+  background: var(--prism-bg-card);
+  border: 1px solid var(--prism-border-accent);
+  border-radius: var(--prism-radius-lg);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8), var(--prism-glow-amber);
+  width: 100%;
+  max-width: 440px;
+  padding: 26px;
+  position: relative;
+  animation: prism-toast-in 0.25s var(--prism-ease-spring);
+}

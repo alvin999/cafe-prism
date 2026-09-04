@@ -2,6 +2,7 @@ import { useLang } from '../App.jsx';
 import { useDashboard } from '../hooks/useDashboard.js';
 import ResearchCard from '../components/Dashboard/ResearchCard.jsx';
 import ProgressBar from '../components/Dashboard/ProgressBar.jsx';
+import UnlockModal from '../components/UnlockModal.jsx';
 
 export default function Dashboard() {
   const { t, lang } = useLang();
@@ -14,6 +15,9 @@ export default function Dashboard() {
     lastRun,
     sentTelegram,
     noModelMode,
+    needUnlock,
+    handleUnlockSuccess,
+    handleCancelUnlock,
     run,
     handleManualPush
   } = useDashboard(lang);
@@ -211,6 +215,13 @@ export default function Dashboard() {
           </div>
         );
       })()}
+
+      <UnlockModal
+        isOpen={needUnlock}
+        onClose={handleCancelUnlock}
+        onSuccess={handleUnlockSuccess}
+        t={t}
+      />
     </div>
   );
 }

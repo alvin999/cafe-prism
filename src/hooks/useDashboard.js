@@ -11,6 +11,10 @@ export function useDashboard(lang) {
   const [sentTelegram, setSentTelegram] = useState(false);
   const [noModelMode, setNoModelMode] = useState(null); // null, 'no_config', 'conn_error'
 
+  // 密碼解鎖流程狀態
+  const [needUnlock, setNeedUnlock] = useState(false);
+  const [pendingAction, setPendingAction] = useState(null); // 'run' | 'push' | null
+
   useEffect(() => {
     // Load last results from history
     const h = Storage.getHistory();
@@ -21,6 +25,16 @@ export function useDashboard(lang) {
   }, []);
 
   const run = async () => {
+    const raw = Storage.getRawSettings();
+    // 若已啟用密碼保護且尚未解鎖，且需使用雲端金鑰或 Telegram
+    if (Storage.hasPasswordProtection() && !Storage.isUnlocked()) {
+      if (raw.modelType === 'cloud' || (raw.autoTelegram)) {
+        setPendingAction('run');
+        setNeedUnlock(true);
+        return;
+      }
+    }
+
     const settings = Storage.getSettings();
 
     setRunning(true);
@@ -62,6 +76,12 @@ export function useDashboard(lang) {
   };
 
   const handleManualPush = async () => {
+    if (Storage.hasPasswordProtection() && !Storage.isUnlocked()) {
+      setPendingAction('push');
+      setNeedUnlock(true);
+      return;
+    }
+
     const settings = Storage.getSettings();
     if (!settings.botToken || !settings.chatId) {
       setError(lang === 'zh' ? '請先前往「設定」配置 Telegram Bot Token 和 Chat ID。' : 'Please configure Telegram Bot Token and Chat ID in Settings first.');
@@ -81,6 +101,22 @@ export function useDashboard(lang) {
     }
   };
 
+  const handleUnlockSuccess = () => {
+    setNeedUnlock(false);
+    const action = pendingAction;
+    setPendingAction(null);
+    if (action === 'run') {
+      setTimeout(run, 50);
+    } else if (action === 'push') {
+      setTimeout(handleManualPush, 50);
+    }
+  };
+
+  const handleCancelUnlock = () => {
+    setNeedUnlock(false);
+    setPendingAction(null);
+  };
+
   return {
     cards,
     running,
@@ -90,7 +126,10 @@ export function useDashboard(lang) {
     lastRun,
     sentTelegram,
     noModelMode,
+    needUnlock,
+    handleUnlockSuccess,
+    handleCancelUnlock,
     run,
-    handleManualPush
+    handleManualPush,
   };
 }
