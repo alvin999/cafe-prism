@@ -8,10 +8,15 @@
 
 - 🔍 **三層爬取**：學術論文（Semantic Scholar）、產業新知（RSS）、社群討論（Reddit）
 - 🛡️ **防幻覺三重鎖**：來源引用鎖定 + 多來源交叉驗證 + 信心分數標示
-- 🤖 **LLM 彈性接入**：本地 Ollama 或雲端（OpenAI / Anthropic / Groq）
+- 🤖 **多元 LLM 支援**：
+  - **雲端 API**：Google Gemini、Groq（推薦免費額度）、OpenAI、Anthropic Claude
+  - **本地端**：Ollama 私有化部署
+  - **動態同步**：支援全服務商線上即時取得最新模型清單，並防範連線競態
+  - **無金鑰預覽**：未填金鑰時亦能完整選取各家官方熱門預設模型
+- 🔒 **企業級隱私與主密碼保護**：支援 AES-256-GCM 自訂主密碼加密金鑰，各服務商金鑰獨立儲存，關閉分頁記憶體自動銷毀
 - 📱 **Telegram Bot**：每日推播、即時查詢、關鍵字訂閱
-- ⏰ **排程執行**：每日 / 每週自動抓取
-- 🌐 **中英雙語**：一鍵切換
+- ⏰ **智慧排程**：每日 / 每週定時自動抓取與跨工作階段補跑
+- 🌐 **中英雙語**：介面一鍵即時切換
 
 ## 快速開始 Quick Start
 
@@ -28,7 +33,7 @@ npm run dev
 3. **Build settings**:
    - Build command: `npm run build`
    - Output directory: `dist`
-4. **優勢**: 完美支援 `_redirects` 代理，API 功能開箱即用。
+4. **優勢**: 完美支援 `_redirects` 與 Cloudflare Pages Functions 代理，API 功能開箱即用。
 
 ### 2. Vercel / Netlify
 - **Build settings**: `npm run build` / `dist`
@@ -43,10 +48,17 @@ npm run dev
 
 所有設定儲存於瀏覽器 `localStorage`，**API 金鑰絕不離開你的裝置**。
 
-### 模型設定
-- **本地（Ollama）**：需先啟動 `ollama serve`，預設 `http://localhost:11434`
-- **Groq**（推薦免費方案）：[groq.com](https://groq.com) 申請免費 API key
-- **OpenAI / Anthropic**：填入對應 API key
+### AI 模型設定
+- **各服務商獨立記憶**：Groq、Gemini、OpenAI、Anthropic 各自保存專屬金鑰，切換時自動帶出互不干擾。
+- **免金鑰預覽**：未填入金鑰時，下拉選單仍完整提供各家主流官方模型供您選取；填入金鑰後則自動向官方同步最新模型清單。
+- **Google Gemini**：至 [Google AI Studio](https://aistudio.google.com/) 申請 API 金鑰
+- **Groq**（推薦免費方案）：至 [groq.com](https://groq.com) 申請免費 API key
+- **OpenAI / Anthropic**：填入對應平台 API key
+- **本地端（Ollama）**：需先啟動 `ollama serve`，預設位址 `http://localhost:11434`
+
+### 主密碼保護 (Master Password)
+- 可於「設定」中自訂主密碼，將所有 API 金鑰以 AES-GCM (256-bit) 加密存放。
+- 關閉瀏覽器分頁後記憶體自動銷毀，重新進入需解鎖，杜絕公用電腦金鑰外洩風險。
 
 ### Telegram Bot 設定
 1. 向 `@BotFather` 發送 `/newbot`，取得 Bot Token
