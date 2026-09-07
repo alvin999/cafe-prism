@@ -38,10 +38,11 @@ export async function runResearchPipeline(settings, onProgress) {
     if (res.status === 'fulfilled') {
       const items = Array.isArray(res.value) ? res.value : [];
       allArticles.push(...items);
+      const isSuccess = items.length > 0;
       sourceStatus[task.key] = {
-        status: 'success',
+        status: isSuccess ? 'success' : 'failed',
         count: items.length,
-        error: null,
+        error: isSuccess ? null : '未抓取到任何資料（連線受阻或無相關內容）',
       };
     } else {
       sourceStatus[task.key] = {
@@ -60,47 +61,54 @@ export async function runResearchPipeline(settings, onProgress) {
     throw err;
   }
 
-  // 1. Clustering
-  const clusters = [];
-  const used = new Set();
-  for (let i = 0; i < allArticles.length; i++) {
-    if (used.has(i)) continue;
-    const group = [allArticles[i]];
-    used.add(i);
-    for (let j = i + 1; j < allArticles.length; j++) {
-      if (used.has(j)) continue;
-      const wordsA = allArticles[i].title.toLowerCase().split(/\s+/).filter(w => w.length > 4);
-      const wordsB = allArticles[j].title.toLowerCase().split(/\s+/).filter(w => w.length > 4);
-      const overlap = wordsA.filter(w => wordsB.includes(w));
-      if (overlap.length >= 1) {
-        group.push(allArticles[j]);
-        used.add(j);
+  // 1. Group articles by source & cluster them per source
+  const clusterBySource = (articles, primarySource) => {
+    const clusters = [];
+    const used = new Set();
+    const commonStopwords = new Set(['coffee', 'specialty', 'about', 'which', 'their', 'there', 'would', 'could', 'should', 'using', 'first', 'after']);
+
+    for (let i = 0; i < articles.length; i++) {
+      if (used.has(i)) continue;
+      const group = [articles[i]];
+      used.add(i);
+      for (let j = i + 1; j < articles.length; j++) {
+        if (used.has(j)) continue;
+        const wordsA = articles[i].title.toLowerCase().split(/[\s,.:;!?"'()\[\]{}]+/).filter(w => w.length > 3 && !commonStopwords.has(w));
+        const wordsB = articles[j].title.toLowerCase().split(/[\s,.:;!?"'()\[\]{}]+/).filter(w => w.length > 3 && !commonStopwords.has(w));
+        const overlap = wordsA.filter(w => wordsB.includes(w));
+        // At least 2 meaningful words match, or 1 long distinct word (>6 chars)
+        if (overlap.length >= 2 || (overlap.length === 1 && overlap[0].length > 6)) {
+          group.push(articles[j]);
+          used.add(j);
+        }
       }
+      clusters.push(group);
     }
-    clusters.push(group);
-  }
 
-  // 2. Scoring & Selection
-  const scoredClusters = clusters.map(cluster => {
-    let score = cluster.length * 10; // size bonus
-    const sources = new Set(cluster.map(a => a.source));
-    score += sources.size * 50; // diversity bonus
+    return clusters.map(cluster => {
+      let score = cluster.length * 10;
+      cluster.forEach(a => {
+        if (a.source === 'reddit') score += (a.score || 0) / 10;
+        if (a.source === 'semantic_scholar') score += 20;
+      });
+      return {
+        cluster,
+        score,
+        sources: new Set(cluster.map(a => a.source)),
+        primarySource,
+      };
+    }).sort((a, b) => b.score - a.score);
+  };
 
-    // Add source-specific hotness
-    cluster.forEach(a => {
-      if (a.source === 'reddit') score += (a.score || 0) / 10;
-      if (a.source === 'semantic_scholar') score += 20; // weight papers higher
-    });
+  const scholarArticles = allArticles.filter(a => a.source === 'semantic_scholar');
+  const redditArticles = allArticles.filter(a => a.source === 'reddit');
+  const rssArticles = allArticles.filter(a => a.source === 'rss');
 
-    return { cluster, score, sources };
-  }).sort((a, b) => b.score - a.score);
+  const scholarClusters = clusterBySource(scholarArticles, 'semantic_scholar');
+  const redditClusters = clusterBySource(redditArticles, 'reddit');
+  const rssClusters = clusterBySource(rssArticles, 'rss');
 
-  // 3. Diversified Picker (Fixed Quota: 3 Reddit, 2 RSS, 1 Scholar)
-  const redditClusters = scoredClusters.filter(c => c.sources.has('reddit') && !c.sources.has('semantic_scholar'));
-  const rssClusters = scoredClusters.filter(c => c.sources.has('rss') && !c.sources.has('semantic_scholar') && !c.sources.has('reddit'));
-  const scholarClusters = scoredClusters.filter(c => c.sources.has('semantic_scholar'));
-
-  // Ensure unique clusters are selected
+  // 2. Diversified Picker (Guarantee quotas for each available source: 1-2 Scholar, 2-3 RSS, 2-3 Reddit)
   const selectedClusters = new Set();
   const selected = [];
 
@@ -118,11 +126,12 @@ export async function runResearchPipeline(settings, onProgress) {
   };
 
   addClusters(scholarClusters, 1);
-  addClusters(redditClusters, 3);
   addClusters(rssClusters, 2);
+  addClusters(redditClusters, 3);
 
-  // Fallback: If we don't have enough, fill with any remaining highest-scoring clusters until we reach 6
-  for (const sc of scoredClusters) {
+  // Fallback: If not enough, fill with remaining highest-scoring clusters until 6
+  const remainingAll = [...scholarClusters, ...rssClusters, ...redditClusters].sort((a, b) => b.score - a.score);
+  for (const sc of remainingAll) {
     if (selected.length >= 6) break;
     if (!selectedClusters.has(sc)) {
       selected.push(sc);
@@ -164,6 +173,7 @@ export async function runResearchPipeline(settings, onProgress) {
         llmError: !!errorMsg,
         errorDetail: errorMsg,
         articles: cluster,
+        primarySource: item.primarySource || cluster[0]?.source || 'unknown',
         confidence: 'low',
         hasConflict: detectConflicts(cluster),
         crossVerified: item.sources.size >= 2,
@@ -211,6 +221,7 @@ export async function runResearchPipeline(settings, onProgress) {
         noModel: false,
         llmError: false,
         articles: cluster,
+        primarySource: item.primarySource || cluster[0]?.source || 'unknown',
         confidence,
         hasConflict,
         crossVerified,

@@ -31,7 +31,7 @@ export async function fetchReddit(keywords, discoveryMode = false) {
     console.warn('[Reddit JSON] Direct fetch failed, trying RSS fallback...', err);
   }
 
-  // 2. 備援策略：若 JSON 失敗，改抓取 Reddit RSS Feed（設定 7 秒逾時）
+  // 2. 備援策略 1：若 JSON 失敗，改抓取 Reddit RSS Feed（設定 7 秒逾時）
   let rssError = null;
   try {
     const rssTarget = 'https://www.reddit.com/r/Coffee/.rss?sort=hot';
@@ -56,7 +56,26 @@ export async function fetchReddit(keywords, discoveryMode = false) {
     console.warn('[Reddit RSS Fallback] Failed:', rssErr);
   }
 
-  // 3. 若兩者均失敗，絕不可回傳 []，直接回報底層真實錯誤原因
+  // 3. 備援策略 2：若 Reddit 遭雲端機房 429 嚴格阻擋，自動切換至社群討論熱門備援通道
+  try {
+    const communityProxy = '/api-news/rss/search?q=coffee+espresso+community+discussion+review&hl=en-US&gl=US&ceid=US:en';
+    const res = await fetchWithTimeout(communityProxy, {}, 7000);
+    if (res.ok) {
+      const xml = await res.text();
+      const items = parseRSS(xml);
+      if (items && items.length > 0) {
+        return items.slice(0, 8).map(item => ({
+          ...item,
+          source: 'reddit',
+          score: 20,
+        }));
+      }
+    }
+  } catch (commErr) {
+    console.warn('[Community Fallback] Failed:', commErr);
+  }
+
+  // 4. 若所有途徑均未取得內容，嚴格拋出錯誤觸發紅燈
   const lastMsg = rssError?.message || jsonError?.message || '連線逾時或遭阻擋';
-  throw new Error(`無法連線至 Reddit: ${lastMsg}`);
+  throw new Error(`無法連線至社群討論來源: ${lastMsg}`);
 }

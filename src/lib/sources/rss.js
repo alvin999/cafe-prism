@@ -22,9 +22,30 @@ export function parseRSS(xmlText) {
 
 async function fetchFeedContent(url) {
   let lastErr = null;
-  // 1. 優先使用本機 Vite feed proxy（零 CORS 問題、零依賴外部 proxy）
+
+  // 1. 優先使用原生代理通道（Cloudflare _redirects / Vite proxy）
   try {
-    const res = await fetchWithTimeout(`/api-feed?url=${encodeURIComponent(url)}`, {}, 6000);
+    let proxyPath = null;
+    if (url.includes('news.google.com')) {
+      proxyPath = url.replace('https://news.google.com', '/api-news');
+    } else if (url.includes('sprudge.com')) {
+      proxyPath = url.replace('https://sprudge.com', '/api-sprudge');
+    }
+
+    if (proxyPath) {
+      const res = await fetchWithTimeout(proxyPath, {}, 7000);
+      if (res.ok) {
+        const text = await res.text();
+        if (text.includes('<item') || text.includes('<entry')) return text;
+      }
+    }
+  } catch (err) {
+    lastErr = err;
+  }
+
+  // 2. 次選：使用 /api-feed 動態代理（Cloudflare Pages Functions / Vite middleware）
+  try {
+    const res = await fetchWithTimeout(`/api-feed?url=${encodeURIComponent(url)}`, {}, 7000);
     if (res.ok) {
       const text = await res.text();
       if (text.includes('<item') || text.includes('<entry')) return text;
@@ -35,14 +56,14 @@ async function fetchFeedContent(url) {
     }
   } catch (err) {
     lastErr = err;
-    // Vite proxy 不在（例如靜態發布模式），切換備援
   }
 
-  // 2. 備援：使用 allorigins proxy
+  // 3. 備援：使用 allorigins 公開代理
   try {
-    const res = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, {}, 6000);
+    const res = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, {}, 7000);
     if (res.ok) {
-      return await res.text();
+      const text = await res.text();
+      if (text.includes('<item') || text.includes('<entry')) return text;
     }
   } catch (err) {
     lastErr = err;
@@ -54,12 +75,13 @@ async function fetchFeedContent(url) {
 export async function fetchCoffeeRSS(keywords, discoveryMode = false) {
   const feeds = [
     'https://news.google.com/rss/search?q=specialty+coffee+espresso+brewing&hl=en-US&gl=US&ceid=US:en',
-    'https://perfectdailygrind.com/feed/',
     'https://sprudge.com/feed',
-    'https://www.freshcup.com/feed/',
+    'https://news.google.com/rss/search?q=coffee+roasting+cafe+industry&hl=en-US&gl=US&ceid=US:en',
   ];
 
   const results = [];
+  const errors = [];
+
   for (const feed of feeds) {
     try {
       const xml = await fetchFeedContent(feed);
@@ -80,9 +102,14 @@ export async function fetchCoffeeRSS(keywords, discoveryMode = false) {
 
       results.push(...filtered.map(i => ({ ...i, feedUrl: feed })));
       if (results.length >= 12) break; // 取得足夠資料即停止
-    } catch {
-      // 忽略單一來源錯誤
+    } catch (err) {
+      errors.push(err.message || '連線失敗');
     }
+  }
+
+  // 若所有來源皆未取得資料，絕不可靜默回傳 []，必須 throw 錯誤讓狀態正確呈現為紅燈
+  if (results.length === 0) {
+    throw new Error(errors[0] || '無法連線至任何新聞來源（連線受阻或伺服器逾時）');
   }
 
   return results;

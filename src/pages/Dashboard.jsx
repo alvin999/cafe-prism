@@ -83,8 +83,8 @@ export default function Dashboard() {
             { key: 'rss', icon: '📰', label: t.dashboard.sourcesStatus.rss, data: sourceStatus.rss },
           ].map(source => {
             const data = source.data || { status: 'disabled', count: 0 };
-            const isSuccess = data.status === 'success';
-            const isFailed = data.status === 'failed';
+            const isSuccess = data.status === 'success' && data.count > 0;
+            const isFailed = data.status === 'failed' || (data.status === 'success' && data.count === 0);
 
             const badgeColor = isSuccess 
               ? 'var(--prism-success)' 
@@ -312,9 +312,10 @@ export default function Dashboard() {
       {(() => {
         if (cards.length === 0) return null;
 
-        const papers = cards.filter(c => c.articles.some(a => a.source === 'semantic_scholar'));
-        const reddits = cards.filter(c => !c.articles.some(a => a.source === 'semantic_scholar') && c.articles.some(a => a.source === 'reddit'));
-        const news = cards.filter(c => !c.articles.some(a => a.source === 'semantic_scholar') && !c.articles.some(a => a.source === 'reddit'));
+        const getCardSource = (c) => c.primarySource || c.articles?.[0]?.source || 'unknown';
+        const papers = cards.filter(c => getCardSource(c) === 'semantic_scholar');
+        const reddits = cards.filter(c => getCardSource(c) === 'reddit');
+        const news = cards.filter(c => getCardSource(c) === 'rss');
 
         const renderSection = (title, items, icon) => {
           if (items.length === 0) return null;

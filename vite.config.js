@@ -45,6 +45,16 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-reddit/, '')
       },
+      '/api-news': {
+        target: 'https://news.google.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-news/, '')
+      },
+      '/api-sprudge': {
+        target: 'https://sprudge.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-sprudge/, '')
+      },
       '/api-allorigins': {
         target: 'https://api.allorigins.win',
         changeOrigin: true,
