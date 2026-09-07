@@ -69,9 +69,7 @@ export default function Schedule() {
     </button>
   );
 
-  const days = lang === 'zh'
-    ? ['週日', '週一', '週二', '週三', '週四', '週五', '週六']
-    : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const days = t.schedule.days || ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
     <div className="animate-fade-in">
@@ -96,14 +94,14 @@ export default function Schedule() {
             </p>
           ) : (
             <p style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--prism-text-muted)' }}>
-              {lang === 'zh' ? '排程已關閉' : 'Schedule disabled'}
+              {t.schedule.disabled}
             </p>
           )}
 
           {meta.lastRunTimestamp && (
             <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: 'var(--prism-text-dim)' }}>
-              {lang === 'zh' ? '上次執行' : 'Last run'}: {new Date(meta.lastRunTimestamp).toLocaleString(lang === 'zh' ? 'zh-TW' : 'en-US')}
-              {meta.lastRunType === 'catch_up' && <span className="prism-badge prism-badge-amber" style={{ marginLeft: '6px', fontSize: '10px' }}>{lang === 'zh' ? '延遲補跑' : 'Catch-up'}</span>}
+              {t.schedule.lastRun}: {new Date(meta.lastRunTimestamp).toLocaleString(lang === 'zh' ? 'zh-TW' : 'en-US')}
+              {meta.lastRunType === 'catch_up' && <span className="prism-badge prism-badge-amber" style={{ marginLeft: '6px', fontSize: '10px' }}>{t.schedule.catchUp}</span>}
             </p>
           )}
         </div>
@@ -150,7 +148,7 @@ export default function Schedule() {
       {sched.frequency === 'weekly' && (
         <div style={{ marginBottom: '24px' }} className="animate-fade-in">
           <label style={{ display: 'block', fontSize: '13px', color: 'var(--prism-text-secondary)', marginBottom: '8px' }}>
-            {lang === 'zh' ? '執行日' : 'Day'}
+            {t.schedule.day}
           </label>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             {days.map((d, i) => (
@@ -177,12 +175,10 @@ export default function Schedule() {
       {/* Keyword subscriptions */}
       <div style={{ marginBottom: '32px' }}>
         <h2 className="prism-section-title">
-          {lang === 'zh' ? '論文關鍵字訂閱' : 'Paper keyword subscriptions'}
+          {t.schedule.keywordsTitle}
         </h2>
         <p style={{ fontSize: '12.5px', color: 'var(--prism-text-muted)', marginBottom: '14px' }}>
-          {lang === 'zh'
-            ? '新論文符合以下關鍵字時，自動發送 Telegram 通知'
-            : 'Receive Telegram alerts when new papers match these keywords'}
+          {t.schedule.keywordsHint}
         </p>
 
         <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
@@ -192,7 +188,7 @@ export default function Schedule() {
             value={newKeyword}
             onChange={e => setNewKeyword(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addKeyword()}
-            placeholder={lang === 'zh' ? '例：cold brew, caffeine metabolism' : 'e.g. cold brew, caffeine metabolism'}
+            placeholder={t.schedule.keywordsPlaceholder}
           />
           <button
             onClick={addKeyword}
@@ -225,7 +221,7 @@ export default function Schedule() {
           ))}
           {sched.subscriptions.length === 0 && (
             <span style={{ fontSize: '12.5px', color: 'var(--prism-text-dim)' }}>
-              {lang === 'zh' ? '尚無訂閱關鍵字' : 'No keyword subscriptions yet'}
+              {t.schedule.noKeywords}
             </span>
           )}
         </div>
@@ -238,7 +234,7 @@ export default function Schedule() {
           className={`prism-btn ${saved ? 'prism-btn-success' : 'prism-btn-primary'}`}
           style={{ minWidth: '130px' }}
         >
-          {saved ? (lang === 'zh' ? '✓ 已儲存！' : '✓ Saved!') : (lang === 'zh' ? '儲存排程' : 'Save schedule')}
+          {saved ? t.settings.savedSuccess : t.schedule.saveBtn}
         </button>
 
         {sched.enabled && (
@@ -248,9 +244,9 @@ export default function Schedule() {
             className="prism-btn prism-btn-ghost"
           >
             {testing ? (
-              <><span className="animate-spin">⟳</span> {lang === 'zh' ? '測試中…' : 'Testing…'}</>
+              <><span className="animate-spin">⟳</span> {t.schedule.testing}</>
             ) : (
-              <>{lang === 'zh' ? '立即手動測試排程' : 'Test schedule run'}</>
+              <>{t.schedule.testBtn}</>
             )}
           </button>
         )}

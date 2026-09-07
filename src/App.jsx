@@ -69,7 +69,7 @@ export default function App() {
             {schedulerStatus.running && (
               <span className="prism-badge prism-badge-amber animate-pulse" style={{ fontSize: '11px', marginLeft: '6px' }}>
                 <span className="animate-spin">⟳</span>
-                {schedulerStatus.isCatchUp ? (lang === 'zh' ? '背景補跑中…' : 'Catching up…') : (lang === 'zh' ? '排程執行中…' : 'Scheduled run…')}
+                {schedulerStatus.isCatchUp ? t.app.catchingUp : t.app.scheduledRun}
               </span>
             )}
           </div>
@@ -79,7 +79,7 @@ export default function App() {
             className="prism-btn prism-btn-ghost prism-btn-sm"
             onClick={() => setLang(l => l === 'zh' ? 'en' : 'zh')}
           >
-            {lang === 'zh' ? 'EN' : '中文'}
+            {t.app.switchLang}
           </button>
         </header>
 
@@ -99,8 +99,8 @@ export default function App() {
             ))}
 
             <div className="prism-sidebar-footer">
-              <p className="prism-sidebar-footer-text">
-                {lang === 'zh' ? '金鑰僅存於本機\n絕不上傳至伺服器' : 'Keys stored locally\nNever sent to servers'}
+              <p className="prism-sidebar-footer-text" style={{ whiteSpace: 'pre-line' }}>
+                {t.app.securityBadge}
               </p>
             </div>
           </nav>

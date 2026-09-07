@@ -152,6 +152,15 @@
   cursor: pointer;
 }
 
+.prism-input:disabled,
+.prism-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.02);
+  border-color: var(--prism-border-subtle);
+  filter: grayscale(0.2);
+}
+
 .prism-select option {
   background: var(--prism-bg-surface-elevated);
   color: var(--prism-text-primary);

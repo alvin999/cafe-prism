@@ -14,19 +14,50 @@ export async function runResearchPipeline(settings, onProgress) {
   onProgress('Crawling coffee world…', 10);
   const allArticles = [];
 
-  // Parallel fetch for speed
-  const fetchers = [];
-  if (settings.enablePapers !== false) fetchers.push(fetchSemanticScholar(keywords, isDiscovery));
-  if (settings.enableNews   !== false) fetchers.push(fetchCoffeeRSS(keywords, isDiscovery));
-  if (settings.enableReddit !== false) fetchers.push(fetchReddit(keywords, isDiscovery));
+  // Parallel fetch for speed with named tasks for observability
+  const tasks = [];
+  if (settings.enablePapers !== false) {
+    tasks.push({ key: 'semantic_scholar', name: 'Semantic Scholar', promise: fetchSemanticScholar(keywords, isDiscovery) });
+  }
+  if (settings.enableNews !== false) {
+    tasks.push({ key: 'rss', name: 'RSS', promise: fetchCoffeeRSS(keywords, isDiscovery) });
+  }
+  if (settings.enableReddit !== false) {
+    tasks.push({ key: 'reddit', name: 'Reddit', promise: fetchReddit(keywords, isDiscovery) });
+  }
 
-  const results = await Promise.allSettled(fetchers);
-  results.forEach(r => { if (r.status === 'fulfilled') allArticles.push(...r.value); });
+  const results = await Promise.allSettled(tasks.map(t => t.promise));
+  const sourceStatus = {
+    semantic_scholar: { status: settings.enablePapers === false ? 'disabled' : 'failed', count: 0, error: null },
+    rss: { status: settings.enableNews === false ? 'disabled' : 'failed', count: 0, error: null },
+    reddit: { status: settings.enableReddit === false ? 'disabled' : 'failed', count: 0, error: null },
+  };
+
+  tasks.forEach((task, idx) => {
+    const res = results[idx];
+    if (res.status === 'fulfilled') {
+      const items = Array.isArray(res.value) ? res.value : [];
+      allArticles.push(...items);
+      sourceStatus[task.key] = {
+        status: 'success',
+        count: items.length,
+        error: null,
+      };
+    } else {
+      sourceStatus[task.key] = {
+        status: 'failed',
+        count: 0,
+        error: res.reason?.message || String(res.reason || 'Unknown fetch error'),
+      };
+    }
+  });
 
   onProgress('Organising by hotness & diversity…', 45);
 
   if (allArticles.length === 0) {
-    throw new Error('No articles fetched. Check your network or settings.');
+    const err = new Error('No articles fetched. Check your network or settings.');
+    err.sourceStatus = sourceStatus;
+    throw err;
   }
 
   // 1. Clustering
@@ -109,7 +140,7 @@ export async function runResearchPipeline(settings, onProgress) {
     settings.modelType === 'local'
       ? !!(settings.ollamaUrl && settings.ollamaModel)
       : settings.modelType === 'cloud'
-        ? !!(settings.apiKey && settings.provider)
+        ? !!(settings.provider && ((settings.apiKeys && settings.apiKeys[settings.provider]) || settings.apiKey))
         : false;
 
   for (const item of selected) {
@@ -201,5 +232,6 @@ export async function runResearchPipeline(settings, onProgress) {
   }
 
   onProgress('Done', 100);
+  cards.sourceStatus = sourceStatus;
   return cards;
 }

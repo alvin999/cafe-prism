@@ -8,6 +8,7 @@ export default function Dashboard() {
   const { t, lang } = useLang();
   const {
     cards,
+    sourceStatus,
     running,
     progress,
     progressMsg,
@@ -20,7 +21,7 @@ export default function Dashboard() {
     handleCancelUnlock,
     run,
     handleManualPush
-  } = useDashboard(lang);
+  } = useDashboard(lang, t);
 
   return (
     <div className="animate-fade-in">
@@ -61,6 +62,139 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Crawl Observability Bar */}
+      {sourceStatus && (
+        <div className="prism-card animate-fade-in" style={{
+          padding: '12px 18px',
+          marginBottom: '16px',
+          display: 'flex',
+          gap: '14px',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          background: 'rgba(255, 255, 255, 0.025)',
+          border: '1px solid var(--prism-border-subtle)'
+        }}>
+          <span style={{ fontSize: '12px', color: 'var(--prism-amber-500)', fontWeight: 600 }}>
+            {t.dashboard.sourcesStatus.title}:
+          </span>
+          {[
+            { key: 'semantic_scholar', icon: '🔬', label: t.dashboard.sourcesStatus.scholar, data: sourceStatus.semantic_scholar },
+            { key: 'reddit', icon: '🔥', label: t.dashboard.sourcesStatus.reddit, data: sourceStatus.reddit },
+            { key: 'rss', icon: '📰', label: t.dashboard.sourcesStatus.rss, data: sourceStatus.rss },
+          ].map(source => {
+            const data = source.data || { status: 'disabled', count: 0 };
+            const isSuccess = data.status === 'success';
+            const isFailed = data.status === 'failed';
+
+            const badgeColor = isSuccess 
+              ? 'var(--prism-success)' 
+              : isFailed 
+                ? 'var(--prism-danger)' 
+                : 'var(--prism-text-dim)';
+
+            // 連線正常時不顯示文字（僅綠燈），只有失敗或未啟用時才顯示狀態文字
+            const statusText = isSuccess
+              ? ''
+              : isFailed
+                ? t.dashboard.sourcesStatus.failed
+                : t.dashboard.sourcesStatus.disabled;
+
+            const tooltipText = isFailed
+              ? (data.error || t.dashboard.sourcesStatus.failed)
+              : `${source.label}：${t.dashboard.sourcesStatus.success} (${data.count} 篇原始資料)`;
+
+            return (
+              <span
+                key={source.key}
+                title={tooltipText}
+                style={{
+                  fontSize: '12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '4px 10px',
+                  borderRadius: 'var(--prism-radius-sm)',
+                  background: isFailed ? 'var(--prism-danger-bg)' : isSuccess ? 'rgba(74, 153, 103, 0.1)' : 'rgba(255,255,255,0.03)',
+                  border: `1px solid ${isFailed ? 'var(--prism-danger-border)' : isSuccess ? 'rgba(74, 153, 103, 0.25)' : 'transparent'}`,
+                  color: isFailed ? 'var(--prism-danger)' : 'var(--prism-text-secondary)',
+                  cursor: isFailed ? 'help' : 'default'
+                }}
+              >
+                <span>{source.icon}</span>
+                <span style={{ fontWeight: 500 }}>{source.label}</span>
+                <span style={{
+                  display: 'inline-block',
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  background: badgeColor,
+                  boxShadow: isSuccess ? '0 0 6px rgba(74, 153, 103, 0.6)' : isFailed ? '0 0 6px rgba(239, 68, 68, 0.6)' : 'none'
+                }} />
+                {statusText && <span style={{ fontSize: '11px', opacity: 0.9 }}>{statusText}</span>}
+                {isFailed && data.error && (
+                  <span style={{ fontSize: '11px', color: 'var(--prism-danger)', marginLeft: '2px' }}>
+                    ({data.error.slice(0, 30)}…)
+                  </span>
+                )}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Firewall / Network Restriction Warning Banner */}
+      {sourceStatus && Object.values(sourceStatus).some(s => s.status === 'failed') && !running && (
+        <div className="prism-card animate-fade-in" style={{
+          borderColor: 'rgba(234, 179, 8, 0.3)',
+          background: 'rgba(234, 179, 8, 0.07)',
+          padding: '14px 18px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '12px',
+        }}>
+          <span style={{ fontSize: '20px', flexShrink: 0 }}>🛡️</span>
+          <div style={{ flex: 1 }}>
+            <div style={{
+              fontWeight: 600,
+              color: 'var(--prism-amber-400)',
+              fontSize: '13.5px',
+              marginBottom: '4px'
+            }}>
+              {t.dashboard.firewallNoticeTitle}
+            </div>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--prism-text-secondary)',
+              lineHeight: 1.6,
+              marginBottom: '4px'
+            }}>
+              {t.dashboard.firewallNoticeDesc}
+            </div>
+            <div style={{
+              fontSize: '11.5px',
+              color: 'var(--prism-amber-300)',
+              lineHeight: 1.5
+            }}>
+              {t.dashboard.firewallNoticeTip}
+            </div>
+          </div>
+          <a
+            href="#settings"
+            onClick={e => { e.preventDefault(); document.querySelector('[data-nav="settings"]')?.click(); }}
+            className="prism-btn prism-btn-sm prism-btn-primary"
+            style={{
+              flexShrink: 0,
+              alignSelf: 'center',
+              textDecoration: 'none',
+              fontSize: '12px'
+            }}
+          >
+            {t.dashboard.firewallGoSettings} →
+          </a>
+        </div>
+      )}
+
       {/* Legend */}
       <div className="prism-card" style={{
         padding: '14px 20px',
@@ -71,19 +205,19 @@ export default function Dashboard() {
         alignItems: 'center'
       }}>
         <span style={{ fontSize: '12px', color: 'var(--prism-amber-600)', fontWeight: 600 }}>
-          {lang === 'zh' ? '信心分數說明' : 'Confidence legend'}:
+          {t.dashboard.legend.title}:
         </span>
         {[
-          { level: 'high', icon: '●', label: lang === 'zh' ? '高：多來源交叉驗證' : 'High: multi-source verified', color: 'var(--prism-success)' },
-          { level: 'medium', icon: '◉', label: lang === 'zh' ? '中：單一來源' : 'Medium: single source', color: 'var(--prism-warning)' },
-          { level: 'low', icon: '○', label: lang === 'zh' ? '低：請謹慎參考' : 'Low: treat with caution', color: 'var(--prism-danger)' },
+          { level: 'high', icon: '●', label: t.dashboard.legend.high, color: 'var(--prism-success)' },
+          { level: 'medium', icon: '◉', label: t.dashboard.legend.medium, color: 'var(--prism-warning)' },
+          { level: 'low', icon: '○', label: t.dashboard.legend.low, color: 'var(--prism-danger)' },
         ].map(cfg => (
           <span key={cfg.level} style={{ fontSize: '12px', color: 'var(--prism-text-secondary)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ color: cfg.color }}>{cfg.icon}</span> {cfg.label}
           </span>
         ))}
         <span style={{ fontSize: '12px', color: 'var(--prism-text-muted)', marginLeft: 'auto' }}>
-          ⚠ = {lang === 'zh' ? '不確定句子' : 'uncertain claim'}
+          ⚠ = {t.dashboard.legend.uncertainClaim}
         </span>
       </div>
 
@@ -116,7 +250,7 @@ export default function Dashboard() {
           borderRadius: 'var(--prism-radius-md)',
           display: 'block'
         }}>
-          ✓ {lang === 'zh' ? '已成功推送至 Telegram' : 'Sent to Telegram'}
+          ✓ {t.dashboard.messages.telegramSent}
         </div>
       )}
 
@@ -184,6 +318,7 @@ export default function Dashboard() {
 
         const renderSection = (title, items, icon) => {
           if (items.length === 0) return null;
+
           return (
             <div style={{ marginBottom: '36px' }}>
               <div style={{
@@ -198,8 +333,14 @@ export default function Dashboard() {
                 <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--prism-text-primary)' }}>
                   {title}
                 </h2>
-                <span className="prism-badge prism-badge-ghost" style={{ marginLeft: 'auto', background: 'var(--prism-bg-glass-card)' }}>
-                  {items.length} 篇
+                <span className="prism-badge prism-badge-ghost" style={{
+                  marginLeft: 'auto',
+                  background: 'var(--prism-bg-glass-card)',
+                  fontSize: '11px',
+                  padding: '3px 8px',
+                  color: 'var(--prism-text-muted)',
+                }}>
+                  {items.length} {t.dashboard.sections.itemsUnit}
                 </span>
               </div>
               {items.map(card => <ResearchCard key={card.id} card={card} t={t} lang={lang} />)}
@@ -209,9 +350,9 @@ export default function Dashboard() {
 
         return (
           <div>
-            {renderSection(lang === 'zh' ? '學術研究 (Academic Papers)' : 'Academic Papers', papers, '🔬')}
-            {renderSection(lang === 'zh' ? '社群熱議 (Reddit Discoveries)' : 'Reddit Discoveries', reddits, '🔥')}
-            {renderSection(lang === 'zh' ? '產業新聞 (Industry News)' : 'Industry News', news, '📰')}
+            {renderSection(t.dashboard.sections.papers, papers, '🔬')}
+            {renderSection(t.dashboard.sections.reddits, reddits, '🔥')}
+            {renderSection(t.dashboard.sections.news, news, '📰')}
           </div>
         );
       })()}

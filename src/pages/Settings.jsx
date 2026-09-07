@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../App.jsx';
-import { Storage, sendTelegram, fetchOllamaModels, fetchGroqModels } from '../lib/engine.js';
+import { Storage, sendTelegram, fetchOllamaModels, fetchProviderModels } from '../lib/engine.js';
 import UnlockModal from '../components/UnlockModal.jsx';
 
 function Section({ title, children }) {
@@ -154,6 +154,11 @@ const FALLBACK_MODELS = {
     { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
     { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
   ],
+  gemini: [
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
+    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+  ],
   openai: [
     { id: 'gpt-4o', name: 'GPT-4o' },
     { id: 'gpt-4o-mini', name: 'GPT-4o mini' },
@@ -176,6 +181,12 @@ export default function Settings() {
     provider: 'groq',
     model: 'llama-3.3-70b-versatile',
     apiKey: '',
+    apiKeys: {
+      groq: '',
+      gemini: '',
+      openai: '',
+      anthropic: '',
+    },
     botToken: '',
     chatId: '',
     keywords: 'espresso extraction, coffee brewing, roasting',
@@ -193,18 +204,39 @@ export default function Settings() {
   const [loadingModels, setLoadingModels] = useState(false);
   const [cloudModels, setCloudModels] = useState([]);
   const [fetchingCloud, setFetchingCloud] = useState(false);
+  const [fetchStatus, setFetchStatus] = useState('idle'); // 'idle' | 'success' | 'error'
+  const [fetchErrorDetail, setFetchErrorDetail] = useState('');
 
   // 密碼保護狀態管理
   const [isProtected, setIsProtected] = useState(() => Storage.hasPasswordProtection());
   const [isUnlocked, setIsUnlocked] = useState(() => Storage.isUnlocked());
   const [modalType, setModalType] = useState(null); // 'set' | 'change' | 'unlock' | null
 
+  const currentApiKey = (s.apiKeys && s.apiKeys[s.provider]) || (s.provider === 'groq' ? s.apiKey : '') || '';
+
   const syncSettings = () => {
     setIsProtected(Storage.hasPasswordProtection());
     setIsUnlocked(Storage.isUnlocked());
     const stored = Storage.getSettings();
     if (Object.keys(stored).length > 0) {
-      setS(prev => ({ ...prev, ...stored }));
+      setS(prev => {
+        const mergedKeys = {
+          groq: '',
+          gemini: '',
+          openai: '',
+          anthropic: '',
+          ...(prev.apiKeys || {}),
+          ...(stored.apiKeys || {}),
+        };
+        if (stored.apiKey && !mergedKeys[stored.provider || 'groq']) {
+          mergedKeys[stored.provider || 'groq'] = stored.apiKey;
+        }
+        return {
+          ...prev,
+          ...stored,
+          apiKeys: mergedKeys,
+        };
+      });
     }
   };
 
@@ -242,28 +274,51 @@ export default function Settings() {
   };
 
   const refreshCloudModels = async () => {
-    if (s.provider !== 'groq' || !s.apiKey) return;
+    const key = (s.apiKeys && s.apiKeys[s.provider]) || (s.provider === 'groq' ? s.apiKey : '') || '';
+    if (!key || key.trim().length <= 5) {
+      setFetchingCloud(false);
+      setCloudModels([]);
+      setFetchStatus('idle');
+      return;
+    }
     setFetchingCloud(true);
+    setFetchStatus('idle');
+    setFetchErrorDetail('');
     try {
-      const models = await fetchGroqModels(s.apiKey);
-      setCloudModels(models);
-      if (models.length > 0 && !models.find(m => m.id === s.model)) {
-        update('model', models[0].id);
+      const models = await fetchProviderModels(s.provider, key.trim());
+      if (models && models.length > 0) {
+        setCloudModels(models);
+        setFetchStatus('success');
+        if (!models.find(m => m.id === s.model)) {
+          update('model', models[0].id);
+        }
+      } else {
+        setCloudModels([]);
+        setFetchStatus('error');
+        setFetchErrorDetail('No models found');
       }
     } catch (e) {
       console.error('Failed to fetch cloud models:', e);
       setCloudModels([]);
+      setFetchStatus('error');
+      setFetchErrorDetail(e.message || 'Connection error');
     } finally {
       setFetchingCloud(false);
     }
   };
 
   useEffect(() => {
-    if (s.modelType === 'cloud' && s.provider === 'groq' && s.apiKey.length > 10) {
-      const timer = setTimeout(refreshCloudModels, 1000);
+    const key = (s.apiKeys && s.apiKeys[s.provider]) || (s.provider === 'groq' ? s.apiKey : '') || '';
+    if (s.modelType === 'cloud' && key && key.trim().length > 5) {
+      setFetchingCloud(true);
+      const timer = setTimeout(refreshCloudModels, 800);
       return () => clearTimeout(timer);
+    } else {
+      setFetchingCloud(false);
+      setCloudModels([]);
+      setFetchStatus('idle');
     }
-  }, [s.provider, s.apiKey, s.modelType]);
+  }, [s.provider, s.apiKeys?.[s.provider], s.modelType]);
 
   const save = async () => {
     await Storage.saveSettings(s);
@@ -297,18 +352,14 @@ export default function Settings() {
 
   const testTelegram = async () => {
     if (!s.botToken || !s.chatId) {
-      setTestMsg(lang === 'zh' ? '請填入 Bot Token 和 Chat ID' : 'Please fill in Bot Token and Chat ID');
+      setTestMsg(t.settings.emptyBotConfig);
       return;
     }
     setTesting(true);
     setTestMsg('');
     try {
-      await sendTelegram(s.botToken, s.chatId,
-        lang === 'zh'
-          ? '🔮 CaféPrism 稜咖 測試訊息 — 設定成功！'
-          : '🔮 CaféPrism test message — setup successful!'
-      );
-      setTestMsg(lang === 'zh' ? '✓ 測試訊息已送出！' : '✓ Test message sent!');
+      await sendTelegram(s.botToken, s.chatId, t.settings.testTelegramMsg);
+      setTestMsg(t.settings.testSuccess);
     } catch (e) {
       setTestMsg(`✗ ${e.message}`);
     } finally {
@@ -470,20 +521,26 @@ export default function Settings() {
                   style={{ flex: 1 }}
                   value={s.ollamaModel}
                   onChange={e => update('ollamaModel', e.target.value)}
+                  disabled={loadingModels}
                 >
-                  {ollamaModels.length > 0 ? (
+                  {loadingModels ? (
+                    <option value="">{t.settings.loadingModels}</option>
+                  ) : ollamaModels.length > 0 ? (
                     ollamaModels.map(m => <option key={m} value={m}>{m}</option>)
                   ) : (
-                    <option value="">{loadingModels ? '...' : (lang === 'zh' ? '未偵測到模型' : 'No models found')}</option>
+                    <option value="">{t.settings.noModelsDetected}</option>
                   )}
                   <option value={s.ollamaModel}>{s.ollamaModel} (手動輸入)</option>
                 </select>
                 <button
+                  type="button"
                   onClick={refreshModels}
+                  disabled={loadingModels}
                   className="prism-btn prism-btn-ghost"
                   style={{ padding: '0 16px' }}
+                  title={t.settings.loadingModels}
                 >
-                  ↻
+                  {loadingModels ? '...' : '↻'}
                 </button>
               </div>
             </Field>
@@ -496,11 +553,20 @@ export default function Settings() {
                 value={s.provider}
                 onChange={e => {
                   const p = e.target.value;
-                  update('provider', p);
-                  if (FALLBACK_MODELS[p]) update('model', FALLBACK_MODELS[p][0].id);
+                  const targetKey = (s.apiKeys && s.apiKeys[p]) || '';
+                  setS(prev => ({
+                    ...prev,
+                    provider: p,
+                    apiKey: targetKey,
+                    model: FALLBACK_MODELS[p] ? FALLBACK_MODELS[p][0].id : prev.model,
+                  }));
+                  setCloudModels([]);
+                  setFetchStatus('idle');
+                  setFetchErrorDetail('');
                 }}
               >
                 <option value="groq">Groq (免費額度 / Free tier)</option>
+                <option value="gemini">Google Gemini</option>
                 <option value="openai">OpenAI</option>
                 <option value="anthropic">Anthropic Claude</option>
               </select>
@@ -512,8 +578,11 @@ export default function Settings() {
                   style={{ flex: 1 }}
                   value={s.model}
                   onChange={e => update('model', e.target.value)}
+                  disabled={fetchingCloud}
                 >
-                  {s.provider === 'groq' && cloudModels.length > 0 ? (
+                  {fetchingCloud ? (
+                    <option value="">{t.settings.loadingModels}</option>
+                  ) : cloudModels.length > 0 ? (
                     cloudModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)
                   ) : (
                     (FALLBACK_MODELS[s.provider] || []).map(m => (
@@ -521,16 +590,16 @@ export default function Settings() {
                     ))
                   )}
                 </select>
-                {s.provider === 'groq' && (
-                  <button
-                    onClick={refreshCloudModels}
-                    disabled={fetchingCloud || !s.apiKey}
-                    className="prism-btn prism-btn-ghost"
-                    style={{ padding: '0 16px' }}
-                  >
-                    {fetchingCloud ? '...' : '↻'}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={refreshCloudModels}
+                  disabled={fetchingCloud || !currentApiKey || currentApiKey.trim().length <= 5}
+                  className="prism-btn prism-btn-ghost"
+                  style={{ padding: '0 16px' }}
+                  title={t.settings.loadingModels}
+                >
+                  {fetchingCloud ? '...' : '↻'}
+                </button>
               </div>
             </Field>
             <Field label={t.settings.apiKey} hint={t.settings.apiKeyHint}>
@@ -539,9 +608,29 @@ export default function Settings() {
                   className="prism-input"
                   type="password"
                   style={{ flex: 1 }}
-                  value={s.apiKey}
-                  onChange={e => update('apiKey', e.target.value)}
-                  placeholder={isProtected && !isUnlocked ? (lang === 'zh' ? '• • • • • • (金鑰已加密，請先解鎖)' : '• • • • • • (Keys locked, unlock to edit)') : "sk-..."}
+                  value={currentApiKey}
+                  onChange={e => {
+                    const val = e.target.value;
+                    setS(prev => ({
+                      ...prev,
+                      apiKey: val,
+                      apiKeys: {
+                        ...(prev.apiKeys || {}),
+                        [prev.provider]: val,
+                      },
+                    }));
+                  }}
+                  placeholder={
+                    isProtected && !isUnlocked
+                      ? t.settings.keysLockedPlaceholder
+                      : s.provider === 'gemini'
+                        ? 'AIzaSy... (Google AI Studio)'
+                        : s.provider === 'groq'
+                          ? 'gsk_... (Groq Cloud)'
+                          : s.provider === 'anthropic'
+                            ? 'sk-ant-... (Anthropic Console)'
+                            : 'sk-... (OpenAI Platform)'
+                  }
                   disabled={isProtected && !isUnlocked}
                 />
                 {isProtected && !isUnlocked && (
@@ -555,6 +644,22 @@ export default function Settings() {
                   </button>
                 )}
               </div>
+              {!currentApiKey ? (
+                <p style={{ fontSize: '12px', color: 'var(--prism-amber-400)', margin: '7px 0 0', display: 'flex', alignItems: 'center', gap: '6px', lineHeight: 1.4 }}>
+                  <span>ℹ️</span>
+                  <span>{t.settings.noKeyNotice}</span>
+                </p>
+              ) : fetchStatus === 'success' ? (
+                <p style={{ fontSize: '12px', color: 'var(--prism-success)', margin: '7px 0 0', display: 'flex', alignItems: 'center', gap: '6px', lineHeight: 1.4 }}>
+                  <span>✓</span>
+                  <span>{t.settings.syncSuccessNotice}</span>
+                </p>
+              ) : fetchStatus === 'error' ? (
+                <p style={{ fontSize: '12px', color: 'var(--prism-danger)', margin: '7px 0 0', display: 'flex', alignItems: 'center', gap: '6px', lineHeight: 1.4 }}>
+                  <span>⚠️</span>
+                  <span>{t.settings.syncErrorNotice}</span>
+                </p>
+              ) : null}
             </Field>
           </>
         )}
@@ -602,7 +707,7 @@ export default function Settings() {
               style={{ flex: 1 }}
               value={s.botToken}
               onChange={e => update('botToken', e.target.value)}
-              placeholder={isProtected && !isUnlocked ? (lang === 'zh' ? '• • • • • • (Token 已加密，請先解鎖)' : '• • • • • • (Token locked, unlock to edit)') : "1234567890:AAF..."}
+              placeholder={isProtected && !isUnlocked ? t.settings.tokenLockedPlaceholder : "1234567890:AAF..."}
               disabled={isProtected && !isUnlocked}
             />
             {isProtected && !isUnlocked && (
@@ -628,7 +733,7 @@ export default function Settings() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
           <Toggle fieldKey="autoTelegram" />
           <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)' }}>
-            {lang === 'zh' ? '抓取後自動推送 Telegram' : 'Auto-send to Telegram after fetch'}
+            {t.settings.autoSendTelegram}
           </span>
         </div>
 
@@ -637,7 +742,7 @@ export default function Settings() {
           disabled={testing || (isProtected && !isUnlocked)}
           className="prism-btn prism-btn-ghost"
         >
-          {testing ? <><span className="animate-spin">⟳</span> {lang === 'zh' ? '傳送中…' : 'Sending…'}</> : t.settings.testTelegram}
+          {testing ? <><span className="animate-spin">⟳</span> {t.settings.sending}</> : t.settings.testTelegram}
         </button>
         {testMsg && (
           <p style={{
@@ -653,7 +758,7 @@ export default function Settings() {
         className={`prism-btn ${saved ? 'prism-btn-success' : 'prism-btn-primary'}`}
         style={{ minWidth: '140px', padding: '10px 30px' }}
       >
-        {saved ? (lang === 'zh' ? '✓ 已儲存！' : '✓ Saved!') : t.settings.save}
+        {saved ? t.settings.savedSuccess : t.settings.save}
       </button>
 
       {/* Modals */}

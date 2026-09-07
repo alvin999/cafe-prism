@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from '../api/proxy.js';
+
 // ─── RSS parser ─────────────────────────────────────────────────────────────
 export function parseRSS(xmlText) {
   try {
@@ -19,28 +21,34 @@ export function parseRSS(xmlText) {
 }
 
 async function fetchFeedContent(url) {
+  let lastErr = null;
   // 1. 優先使用本機 Vite feed proxy（零 CORS 問題、零依賴外部 proxy）
   try {
-    const res = await fetch(`/api-feed?url=${encodeURIComponent(url)}`);
+    const res = await fetchWithTimeout(`/api-feed?url=${encodeURIComponent(url)}`, {}, 6000);
     if (res.ok) {
       const text = await res.text();
       if (text.includes('<item') || text.includes('<entry')) return text;
+    } else {
+      const detail = await res.text().catch(() => '');
+      const clean = detail ? detail.trim().split('\n')[0] : '';
+      lastErr = new Error(clean ? `${clean} (HTTP ${res.status})` : `HTTP ${res.status}`);
     }
-  } catch {
+  } catch (err) {
+    lastErr = err;
     // Vite proxy 不在（例如靜態發布模式），切換備援
   }
 
   // 2. 備援：使用 allorigins proxy
   try {
-    const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+    const res = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, {}, 6000);
     if (res.ok) {
       return await res.text();
     }
-  } catch {
-    // ignore
+  } catch (err) {
+    lastErr = err;
   }
 
-  throw new Error(`Failed to fetch feed: ${url}`);
+  throw lastErr || new Error(`無法連線至新聞來源: ${url}`);
 }
 
 export async function fetchCoffeeRSS(keywords, discoveryMode = false) {

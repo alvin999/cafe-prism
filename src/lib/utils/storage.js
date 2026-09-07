@@ -4,6 +4,14 @@ import { encryptSensitiveData, decryptSensitiveData } from './crypto.js';
 let sessionDecryptedKeys = null; // { apiKey: string, botToken: string }
 let sessionPassword = null;
 
+function normalizeApiKeys(raw) {
+  const keys = { ...(raw.apiKeys || {}) };
+  if (raw.apiKey && !keys[raw.provider || 'groq']) {
+    keys[raw.provider || 'groq'] = raw.apiKey;
+  }
+  return keys;
+}
+
 // ─── LocalStorage persistence ─────────────────────────────────────────────────
 export const Storage = {
   getRawSettings: () => {
@@ -29,19 +37,27 @@ export const Storage = {
   getSettings: () => {
     const raw = Storage.getRawSettings();
     if (!raw._encrypted_keys) {
-      return raw;
+      const normalizedKeys = normalizeApiKeys(raw);
+      return {
+        ...raw,
+        apiKeys: normalizedKeys,
+        apiKey: normalizedKeys[raw.provider || 'groq'] || raw.apiKey || '',
+      };
     }
     // 已啟用密碼保護
     if (sessionDecryptedKeys) {
+      const keys = sessionDecryptedKeys.apiKeys || (sessionDecryptedKeys.apiKey ? { [raw.provider || 'groq']: sessionDecryptedKeys.apiKey } : {});
       return {
         ...raw,
-        apiKey: sessionDecryptedKeys.apiKey || '',
+        apiKeys: keys,
+        apiKey: keys[raw.provider || 'groq'] || sessionDecryptedKeys.apiKey || '',
         botToken: sessionDecryptedKeys.botToken || '',
       };
     }
     // 尚未解鎖時，遮蔽敏感金鑰
     return {
       ...raw,
+      apiKeys: {},
       apiKey: '',
       botToken: '',
     };
@@ -57,6 +73,7 @@ export const Storage = {
       if (sessionPassword) {
         const sensitive = {
           apiKey: s.apiKey ?? sessionDecryptedKeys?.apiKey ?? '',
+          apiKeys: s.apiKeys ?? sessionDecryptedKeys?.apiKeys ?? (s.apiKey ? { [s.provider || 'groq']: s.apiKey } : {}),
           botToken: s.botToken ?? sessionDecryptedKeys?.botToken ?? '',
         };
         const encrypted = await encryptSensitiveData(sensitive, sessionPassword);
@@ -68,6 +85,7 @@ export const Storage = {
       }
       // 確保明文金鑰不寫入 localStorage
       delete toSave.apiKey;
+      delete toSave.apiKeys;
       delete toSave.botToken;
       localStorage.setItem('cr_settings', JSON.stringify(toSave));
     } else {
@@ -84,8 +102,10 @@ export const Storage = {
 
     const decrypted = await decryptSensitiveData(raw._encrypted_keys, password);
     sessionPassword = password;
+    const keys = decrypted.apiKeys || (decrypted.apiKey ? { [raw.provider || 'groq']: decrypted.apiKey } : {});
     sessionDecryptedKeys = {
-      apiKey: decrypted.apiKey || '',
+      apiKey: decrypted.apiKey || (keys[raw.provider || 'groq'] || ''),
+      apiKeys: keys,
       botToken: decrypted.botToken || '',
     };
 
@@ -106,6 +126,7 @@ export const Storage = {
   enablePasswordProtection: async (password, currentSettings = {}) => {
     const sensitive = {
       apiKey: currentSettings.apiKey || sessionDecryptedKeys?.apiKey || '',
+      apiKeys: currentSettings.apiKeys || sessionDecryptedKeys?.apiKeys || (currentSettings.apiKey ? { [currentSettings.provider || 'groq']: currentSettings.apiKey } : {}),
       botToken: currentSettings.botToken || sessionDecryptedKeys?.botToken || '',
     };
     const encrypted = await encryptSensitiveData(sensitive, password);
@@ -116,6 +137,7 @@ export const Storage = {
     const raw = Storage.getRawSettings();
     const toSave = { ...raw, ...currentSettings, _encrypted_keys: encrypted };
     delete toSave.apiKey;
+    delete toSave.apiKeys;
     delete toSave.botToken;
 
     localStorage.setItem('cr_settings', JSON.stringify(toSave));
@@ -160,9 +182,10 @@ export const Storage = {
   getHistory: () => {
     try { return JSON.parse(localStorage.getItem('cr_history') || '[]'); } catch { return []; }
   },
-  addHistory: (cards) => {
+  addHistory: (cards, sourceStatus = null) => {
     const h = Storage.getHistory();
-    h.unshift({ date: new Date().toISOString(), cards });
+    const statusToSave = sourceStatus || cards?.sourceStatus || null;
+    h.unshift({ date: new Date().toISOString(), cards, sourceStatus: statusToSave });
     localStorage.setItem('cr_history', JSON.stringify(h.slice(0, 30)));
   },
   getSchedule: () => {

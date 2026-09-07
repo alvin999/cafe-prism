@@ -46,7 +46,7 @@ export default function ResearchCard({ card, t, lang }) {
 
         {card.incomplete && (
           <span className="prism-badge prism-badge-danger">
-            ⚠ {lang === 'zh' ? '輸出不完整' : 'Incomplete'}
+            ⚠ {t.dashboard.card.incomplete}
           </span>
         )}
 
@@ -70,7 +70,7 @@ export default function ResearchCard({ card, t, lang }) {
         lineHeight: 1.45,
         letterSpacing: '-0.01em'
       }}>
-        {card.primaryTitle || card.subject || (lang === 'zh' ? '無標題' : 'Untitled')}
+        {card.primaryTitle || card.subject || t.dashboard.card.untitled}
       </h3>
 
       {/* Summary / No-Model placeholder */}
@@ -88,13 +88,11 @@ export default function ResearchCard({ card, t, lang }) {
           }}>
             {card.llmError ? (
               <>
-                <strong style={{ color: 'var(--prism-danger)' }}>{lang === 'zh' ? 'AI 連線失敗：' : 'AI Connection Failed: '}</strong>
-                {card.errorDetail || (lang === 'zh' ? '請檢查模型設定或網路連線。' : 'Please check model settings or network.')}
+                <strong style={{ color: 'var(--prism-danger)' }}>{t.dashboard.card.aiConnErrorPrefix}</strong>
+                {card.errorDetail || t.dashboard.card.checkModelSettings}
               </>
             ) : (
-              lang === 'zh'
-                ? '—— 標題來自爬蟲原始資料，尚未經 AI 整理。串接模型後即可看到摘要。'
-                : '—— Raw crawled data, not yet organized by AI. Connect a model to generate summaries.'
+              t.dashboard.card.noModelRawNotice
             )}
           </div>
         ) : card.incomplete ? (
@@ -132,7 +130,7 @@ export default function ResearchCard({ card, t, lang }) {
               lineHeight: 1.6
             }}>
               <div style={{ fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--prism-amber-400)' }}>
-                💡 {lang === 'zh' ? '社群趣聞 / 冷知識' : 'Fun Fact'}
+                💡 {t.dashboard.card.funFact}
               </div>
               {card.fun_fact}
             </div>
@@ -148,7 +146,7 @@ export default function ResearchCard({ card, t, lang }) {
               lineHeight: 1.6
             }}>
               <div style={{ fontWeight: 600, marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--prism-success)' }}>
-                🛠️ {lang === 'zh' ? '沖煮實用建議' : 'Practical Tip'}
+                🛠️ {t.dashboard.card.practicalTip}
               </div>
               {card.practical_tip}
             </div>
@@ -215,7 +213,7 @@ export default function ResearchCard({ card, t, lang }) {
             onClick={() => setExpanded(!expanded)}
             className="prism-btn prism-btn-ghost prism-btn-sm"
           >
-            {expanded ? '▲' : '▶'} {lang === 'zh' ? '顯示原始連結' : 'Show sources'} ({card.articles.length})
+            {expanded ? '▲' : '▶'} {t.dashboard.card.showSources} ({card.articles.length})
           </button>
 
           {import.meta.env.DEV && (

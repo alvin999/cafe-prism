@@ -46,7 +46,7 @@ export default function History() {
           onClick={clear}
           className="prism-btn prism-btn-danger prism-btn-sm"
         >
-          {lang === 'zh' ? '清除歷史' : 'Clear history'}
+          {t.history.clear}
         </button>
       </div>
 
@@ -132,7 +132,7 @@ export default function History() {
                       }}
                     />
                     <span style={{ fontSize: '14px', color: 'var(--prism-text-primary)', fontWeight: 600 }}>
-                      {card.primaryTitle || card.subject || (lang === 'zh' ? '無標題' : 'Untitled')}
+                      {card.primaryTitle || card.subject || t.history.untitled}
                     </span>
                     <span style={{ fontSize: '10px', color: 'var(--prism-text-dim)', fontFamily: 'monospace', marginLeft: 'auto' }}>
                       #{card.hash}

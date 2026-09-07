@@ -67,7 +67,8 @@ export function parseAIGeneratedJSON(text) {
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function callLLM(settings, prompt, retries = 2) {
-  const { provider, apiKey, model } = settings;
+  const { provider, model } = settings;
+  const apiKey = (settings.apiKeys && settings.apiKeys[provider]) || settings.apiKey;
 
   const attemptFetch = async () => {
     if (settings.modelType === 'local') {
@@ -135,6 +136,25 @@ export async function callLLM(settings, prompt, retries = 2) {
       return d.choices?.[0]?.message?.content || '';
     }
 
+    if (provider === 'gemini') {
+      const selectedModel = model || 'gemini-2.0-flash';
+      const cleanModel = selectedModel.replace(/^models\//, '');
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        }),
+      });
+      if (!r.ok) {
+        const errText = await r.text();
+        if (r.status === 429) throw new Error('RATE_LIMIT');
+        throw new Error(`Gemini error: ${errText}`);
+      }
+      const d = await r.json();
+      return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    }
+
     throw new Error(`Unknown provider: ${provider}`);
   };
 
@@ -159,6 +179,62 @@ export async function fetchGroqModels(apiKey) {
   const d = await r.json();
   // Filter for text models only (exclude whisper/image if any)
   return (d.data || []).map(m => ({ id: m.id, name: m.id }));
+}
+
+export async function fetchOpenAIModels(apiKey) {
+  const r = await fetch('https://api.openai.com/v1/models', {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!r.ok) throw new Error('Failed to fetch OpenAI models');
+  const d = await r.json();
+  return (d.data || [])
+    .filter(m => (m.id.startsWith('gpt-') || m.id.startsWith('o1') || m.id.startsWith('o3')) &&
+      !m.id.includes('instruct') &&
+      !m.id.includes('realtime') &&
+      !m.id.includes('audio'))
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(m => ({ id: m.id, name: m.id }));
+}
+
+export async function fetchAnthropicModels(apiKey) {
+  const r = await fetch('https://api.anthropic.com/v1/models', {
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+  });
+  if (!r.ok) throw new Error('Failed to fetch Anthropic models');
+  const d = await r.json();
+  return (d.data || []).map(m => ({ id: m.id, name: m.display_name || m.id }));
+}
+
+export async function fetchGeminiModels(apiKey) {
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+  if (!r.ok) throw new Error('Failed to fetch Gemini models');
+  const d = await r.json();
+  return (d.models || [])
+    .filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name.includes('gemini'))
+    .map(m => {
+      const id = m.name.replace(/^models\//, '');
+      return { id, name: m.displayName || id };
+    });
+}
+
+export async function fetchProviderModels(provider, apiKey) {
+  if (!apiKey) return [];
+  switch (provider) {
+    case 'groq':
+      return fetchGroqModels(apiKey);
+    case 'openai':
+      return fetchOpenAIModels(apiKey);
+    case 'anthropic':
+      return fetchAnthropicModels(apiKey);
+    case 'gemini':
+      return fetchGeminiModels(apiKey);
+    default:
+      return [];
+  }
 }
 
 export async function fetchOllamaModels(ollamaUrl) {

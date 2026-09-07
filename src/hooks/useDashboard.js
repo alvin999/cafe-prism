@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { runResearchPipeline, sendTelegram, formatTelegramMessage, Storage } from '../lib/engine.js';
 
-export function useDashboard(lang) {
+export function useDashboard(lang, t = null) {
   const [cards, setCards] = useState([]);
+  const [sourceStatus, setSourceStatus] = useState(null);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMsg, setProgressMsg] = useState('');
@@ -20,6 +21,7 @@ export function useDashboard(lang) {
     const h = Storage.getHistory();
     if (h.length > 0) {
       setCards(h[0].cards || []);
+      setSourceStatus(h[0].sourceStatus || null);
       setLastRun(new Date(h[0].date).toLocaleString());
     }
   }, []);
@@ -48,7 +50,9 @@ export function useDashboard(lang) {
         (msg, pct) => { setProgressMsg(msg); setProgress(pct); }
       );
       setCards(result);
-      Storage.addHistory(result);
+      const status = result.sourceStatus || null;
+      setSourceStatus(status);
+      Storage.addHistory(result, status);
       setLastRun(new Date().toLocaleString());
 
       // Detect if all cards are in no-model fallback mode
@@ -68,6 +72,9 @@ export function useDashboard(lang) {
         setSentTelegram(true);
       }
     } catch (e) {
+      if (e.sourceStatus) {
+        setSourceStatus(e.sourceStatus);
+      }
       setError(e.message || 'Unknown error');
     } finally {
       setRunning(false);
@@ -84,7 +91,7 @@ export function useDashboard(lang) {
 
     const settings = Storage.getSettings();
     if (!settings.botToken || !settings.chatId) {
-      setError(lang === 'zh' ? '請先前往「設定」配置 Telegram Bot Token 和 Chat ID。' : 'Please configure Telegram Bot Token and Chat ID in Settings first.');
+      setError(t?.dashboard?.messages?.telegramNotConfigured || 'Please configure Telegram Bot Token and Chat ID in Settings first.');
       return;
     }
 
@@ -119,6 +126,7 @@ export function useDashboard(lang) {
 
   return {
     cards,
+    sourceStatus,
     running,
     progress,
     progressMsg,

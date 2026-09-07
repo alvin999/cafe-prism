@@ -1,4 +1,4 @@
-import { fetchFromProxy } from '../api/proxy.js';
+import { fetchFromProxy, fetchWithTimeout } from '../api/proxy.js';
 import { parseRSS } from './rss.js';
 
 // ─── Reddit fetcher ──────────────────────────────────────────────────────────
@@ -11,9 +11,11 @@ export async function fetchReddit(keywords, discoveryMode = false) {
     endpoint = `/r/Coffee+espresso/search.json?q=${query}&sort=new&limit=10&restrict_sr=1`;
   }
 
-  // 1. 嘗試直接抓取 JSON API
+  let jsonError = null;
+
+  // 1. 嘗試直接抓取 JSON API（設定 7 秒逾時）
   try {
-    const data = await fetchFromProxy('/api-reddit', endpoint, true);
+    const data = await fetchFromProxy('/api-reddit', endpoint, true, 7000);
     if (data?.data?.children && data.data.children.length > 0) {
       return data.data.children.map(c => ({
         title: c.data.title,
@@ -25,25 +27,36 @@ export async function fetchReddit(keywords, discoveryMode = false) {
       }));
     }
   } catch (err) {
+    jsonError = err;
     console.warn('[Reddit JSON] Direct fetch failed, trying RSS fallback...', err);
   }
 
-  // 2. 備援策略：若 JSON 遇到 403，改抓取 Reddit RSS Feed（更不容易被擋）
+  // 2. 備援策略：若 JSON 失敗，改抓取 Reddit RSS Feed（設定 7 秒逾時）
+  let rssError = null;
   try {
     const rssTarget = 'https://www.reddit.com/r/Coffee/.rss?sort=hot';
-    const res = await fetch(`/api-feed?url=${encodeURIComponent(rssTarget)}`);
+    const res = await fetchWithTimeout(`/api-feed?url=${encodeURIComponent(rssTarget)}`, {}, 7000);
     if (res.ok) {
       const xml = await res.text();
       const items = parseRSS(xml);
-      return items.map(item => ({
-        ...item,
-        source: 'reddit',
-        score: 15,
-      }));
+      if (items && items.length > 0) {
+        return items.map(item => ({
+          ...item,
+          source: 'reddit',
+          score: 15,
+        }));
+      }
+    } else {
+      const detail = await res.text().catch(() => '');
+      const clean = detail ? detail.trim().split('\n')[0] : '';
+      rssError = new Error(clean ? `${clean} (HTTP ${res.status})` : `HTTP ${res.status}`);
     }
   } catch (rssErr) {
+    rssError = rssErr;
     console.warn('[Reddit RSS Fallback] Failed:', rssErr);
   }
 
-  return [];
+  // 3. 若兩者均失敗，絕不可回傳 []，直接回報底層真實錯誤原因
+  const lastMsg = rssError?.message || jsonError?.message || '連線逾時或遭阻擋';
+  throw new Error(`無法連線至 Reddit: ${lastMsg}`);
 }
