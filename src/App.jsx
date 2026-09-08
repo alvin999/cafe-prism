@@ -1,4 +1,4 @@
-import { useState, createContext, useContext, useEffect } from 'react';
+import { useState, createContext, useContext, useEffect, useRef } from 'react';
 import { translations } from './i18n/translations.js';
 import { Storage } from './lib/engine.js';
 import { useGlobalScheduler } from './hooks/useGlobalScheduler.js';
@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Settings from './pages/Settings.jsx';
 import Schedule from './pages/Schedule.jsx';
 import History from './pages/History.jsx';
+import UnsavedModal from './components/UnsavedModal.jsx';
 
 export const LangContext = createContext({ lang: 'zh', t: translations.zh, setLang: () => { } });
 export const useLang = () => useContext(LangContext);
@@ -44,6 +45,12 @@ const NAV_ICONS = {
 export default function App() {
   const [lang, setLang] = useState(() => Storage.getSettings().language || 'zh');
   const [page, setPage] = useState('dashboard');
+  const [hasUnsavedSettings, setHasUnsavedSettings] = useState(false);
+  const [pendingPage, setPendingPage] = useState(null);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const saveSettingsRef = useRef(null);
+  const discardSettingsRef = useRef(null);
+
   const t = translations[lang];
 
   // 全域輕量排程生命週期管理
@@ -56,6 +63,42 @@ export default function App() {
 
   const pages = { dashboard: Dashboard, settings: Settings, schedule: Schedule, history: History };
   const PageComponent = pages[page];
+
+  const handleNavClick = (targetKey) => {
+    if (page === targetKey) return;
+    if (page === 'settings' && hasUnsavedSettings) {
+      setPendingPage(targetKey);
+      setShowUnsavedModal(true);
+    } else {
+      setPage(targetKey);
+    }
+  };
+
+  const handleStay = () => {
+    setShowUnsavedModal(false);
+    setPendingPage(null);
+  };
+
+  const handleDiscardAndLeave = () => {
+    setShowUnsavedModal(false);
+    setHasUnsavedSettings(false);
+    if (pendingPage) {
+      setPage(pendingPage);
+      setPendingPage(null);
+    }
+  };
+
+  const handleSaveAndLeave = async () => {
+    if (saveSettingsRef.current) {
+      await saveSettingsRef.current();
+    }
+    setShowUnsavedModal(false);
+    setHasUnsavedSettings(false);
+    if (pendingPage) {
+      setPage(pendingPage);
+      setPendingPage(null);
+    }
+  };
 
   return (
     <LangContext.Provider value={{ lang, t, setLang }}>
@@ -90,11 +133,14 @@ export default function App() {
               <button
                 key={key}
                 data-nav={key}
-                onClick={() => setPage(key)}
+                onClick={() => handleNavClick(key)}
                 className={`prism-nav-btn ${page === key ? 'is-active' : ''}`}
               >
                 <span className="prism-nav-btn-icon">{NAV_ICONS[key]}</span>
                 {t.nav[key]}
+                {key === 'settings' && hasUnsavedSettings && (
+                  <span className="prism-unsaved-dot" style={{ marginLeft: 'auto' }} title={t.settings.unsavedChangesBar} />
+                )}
               </button>
             ))}
 
@@ -107,7 +153,11 @@ export default function App() {
 
           {/* Main content */}
           <main className="prism-main">
-            <PageComponent />
+            <PageComponent
+              onDirtyChange={setHasUnsavedSettings}
+              saveRef={saveSettingsRef}
+              discardRef={discardSettingsRef}
+            />
           </main>
         </div>
 
@@ -118,6 +168,41 @@ export default function App() {
             <span>{schedulerStatus.toastMessage}</span>
           </div>
         )}
+
+        {/* Floating Unsaved Bar (Top-level Viewport Centered) */}
+        {page === 'settings' && hasUnsavedSettings && (
+          <div className="prism-unsaved-bar">
+            <div className="prism-unsaved-bar-info">
+              <span className="prism-unsaved-dot" />
+              <span className="prism-unsaved-bar-text">{t.settings.unsavedChangesBar}</span>
+            </div>
+            <div className="prism-unsaved-bar-actions">
+              <button
+                type="button"
+                className="prism-btn prism-btn-ghost prism-btn-sm"
+                onClick={() => discardSettingsRef.current?.()}
+              >
+                {t.settings.discardChanges}
+              </button>
+              <button
+                type="button"
+                className="prism-btn prism-btn-primary prism-btn-sm"
+                onClick={() => saveSettingsRef.current?.()}
+              >
+                ✓ {t.settings.save}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Unsaved Changes Confirmation Modal */}
+        <UnsavedModal
+          isOpen={showUnsavedModal}
+          onStay={handleStay}
+          onDiscard={handleDiscardAndLeave}
+          onSaveAndLeave={handleSaveAndLeave}
+          t={t}
+        />
       </div>
     </LangContext.Provider>
   );

@@ -384,3 +384,81 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* ─── Unsaved Changes Floating Bar ───────────────────────────────────────── */
+.prism-unsaved-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 220px;
+  right: 0;
+  margin-left: auto;
+  margin-right: auto;
+  width: min(640px, calc(100vw - 260px));
+  box-sizing: border-box;
+  background: rgba(24, 21, 16, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--prism-border-accent-strong);
+  border-radius: var(--prism-radius-lg);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.75), 0 0 24px -4px rgba(200, 160, 96, 0.3);
+  z-index: 100;
+  animation: prism-unsaved-bar-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes prism-unsaved-bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 860px) {
+  .prism-unsaved-bar {
+    left: 0;
+    width: calc(100vw - 32px);
+    bottom: 16px;
+  }
+}
+
+.prism-unsaved-bar-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.prism-unsaved-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--prism-amber-400);
+  box-shadow: 0 0 10px var(--prism-amber-400);
+  animation: prism-pulse-subtle 1.8s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+.prism-unsaved-bar-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--prism-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prism-unsaved-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+

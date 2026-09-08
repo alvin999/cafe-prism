@@ -172,30 +172,61 @@ const FALLBACK_MODELS = {
   ],
 };
 
-export default function Settings() {
+const normalizeSettings = (raw = {}) => {
+  const provider = raw.provider || 'groq';
+  const apiKeys = {
+    groq: '',
+    gemini: '',
+    openai: '',
+    anthropic: '',
+    ...(raw.apiKeys || {}),
+  };
+  if (raw.apiKey && !apiKeys[provider]) {
+    apiKeys[provider] = raw.apiKey;
+  }
+  return {
+    modelType: raw.modelType || 'cloud',
+    ollamaUrl: raw.ollamaUrl || 'http://localhost:11434',
+    ollamaModel: raw.ollamaModel || 'llama3.2',
+    provider,
+    model: raw.model || 'llama-3.3-70b-versatile',
+    apiKeys,
+    botToken: raw.botToken || '',
+    chatId: raw.chatId || '',
+    keywords: raw.keywords !== undefined ? raw.keywords : 'espresso extraction, coffee brewing, roasting',
+    discoveryMode: raw.discoveryMode !== undefined ? !!raw.discoveryMode : true,
+    enablePapers: raw.enablePapers !== undefined ? !!raw.enablePapers : true,
+    enableNews: raw.enableNews !== undefined ? !!raw.enableNews : true,
+    enableReddit: raw.enableReddit !== undefined ? !!raw.enableReddit : true,
+    autoTelegram: raw.autoTelegram !== undefined ? !!raw.autoTelegram : false,
+  };
+};
+
+const areSettingsEqual = (a, b) => {
+  if (!a || !b) return true;
+  const fields = [
+    'modelType', 'ollamaUrl', 'ollamaModel', 'provider', 'model',
+    'botToken', 'chatId', 'keywords', 'discoveryMode',
+    'enablePapers', 'enableNews', 'enableReddit', 'autoTelegram'
+  ];
+  for (const field of fields) {
+    if (a[field] !== b[field]) return false;
+  }
+  const providers = ['groq', 'gemini', 'openai', 'anthropic'];
+  for (const p of providers) {
+    const keyA = (a.apiKeys && a.apiKeys[p]) || '';
+    const keyB = (b.apiKeys && b.apiKeys[p]) || '';
+    if (keyA !== keyB) return false;
+  }
+  return true;
+};
+
+export default function Settings({ onDirtyChange, saveRef, discardRef }) {
   const { t, lang } = useLang();
-  const [s, setS] = useState({
-    modelType: 'cloud',
-    ollamaUrl: 'http://localhost:11434',
-    ollamaModel: 'llama3.2',
-    provider: 'groq',
-    model: 'llama-3.3-70b-versatile',
-    apiKey: '',
-    apiKeys: {
-      groq: '',
-      gemini: '',
-      openai: '',
-      anthropic: '',
-    },
-    botToken: '',
-    chatId: '',
-    keywords: 'espresso extraction, coffee brewing, roasting',
-    discoveryMode: true,
-    enablePapers: true,
-    enableNews: true,
-    enableReddit: true,
-    autoTelegram: false,
-  });
+  const [s, setS] = useState(() => normalizeSettings(Storage.getSettings()));
+  const [snapshot, setSnapshot] = useState(() => normalizeSettings(Storage.getSettings()));
+
+  const isDirty = snapshot ? !areSettingsEqual(s, snapshot) : false;
 
   const [saved, setSaved] = useState(false);
   const [testMsg, setTestMsg] = useState('');
@@ -219,26 +250,27 @@ export default function Settings() {
     setIsUnlocked(Storage.isUnlocked());
     const stored = Storage.getSettings();
     if (Object.keys(stored).length > 0) {
-      setS(prev => {
-        const mergedKeys = {
-          groq: '',
-          gemini: '',
-          openai: '',
-          anthropic: '',
-          ...(prev.apiKeys || {}),
-          ...(stored.apiKeys || {}),
-        };
-        if (stored.apiKey && !mergedKeys[stored.provider || 'groq']) {
-          mergedKeys[stored.provider || 'groq'] = stored.apiKey;
-        }
-        return {
-          ...prev,
-          ...stored,
-          apiKeys: mergedKeys,
-        };
-      });
+      const normalized = normalizeSettings(stored);
+      setS(normalized);
+      setSnapshot(normalized);
     }
   };
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+    return () => onDirtyChange?.(false);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
 
   useEffect(() => {
     syncSettings();
@@ -325,9 +357,28 @@ export default function Settings() {
   const save = async () => {
     await Storage.saveSettings(s);
     window.dispatchEvent(new Event('cr:settings-updated'));
+    setSnapshot(normalizeSettings(s));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
+
+  const handleDiscard = () => {
+    if (snapshot) {
+      setS(normalizeSettings(snapshot));
+    }
+  };
+
+  useEffect(() => {
+    if (saveRef) {
+      saveRef.current = save;
+    }
+  }, [s, saveRef]);
+
+  useEffect(() => {
+    if (discardRef) {
+      discardRef.current = handleDiscard;
+    }
+  }, [snapshot, discardRef]);
 
   const update = (key, val) => setS(prev => ({ ...prev, [key]: val }));
 
@@ -383,9 +434,17 @@ export default function Settings() {
 
   return (
     <div className="animate-fade-in">
-      <h1 className="prism-page-title">
-        {t.settings.title}
-      </h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        <h1 className="prism-page-title" style={{ margin: 0 }}>
+          {t.settings.title}
+        </h1>
+        {isDirty && (
+          <span className="prism-badge prism-badge-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <span className="prism-unsaved-dot" style={{ width: '6px', height: '6px' }} />
+            {t.settings.unsavedChangesTitle}
+          </span>
+        )}
+      </div>
 
       {/* Security & Privacy Notice Banner */}
       <div
@@ -819,13 +878,31 @@ export default function Settings() {
       </Section>
 
       {/* Save */}
-      <button
-        onClick={save}
-        className={`prism-btn ${saved ? 'prism-btn-success' : 'prism-btn-primary'}`}
-        style={{ minWidth: '140px', padding: '10px 30px' }}
-      >
-        {saved ? t.settings.savedSuccess : t.settings.save}
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '40px', flexWrap: 'wrap' }}>
+        <button
+          onClick={save}
+          className={`prism-btn ${saved ? 'prism-btn-success' : 'prism-btn-primary'}`}
+          style={{
+            minWidth: '140px',
+            padding: '10px 30px',
+            boxShadow: isDirty && !saved ? 'var(--prism-glow-amber), 0 0 16px rgba(200, 160, 96, 0.35)' : undefined,
+          }}
+        >
+          {isDirty && !saved && <span className="prism-unsaved-dot" style={{ marginRight: '6px' }} />}
+          {saved ? t.settings.savedSuccess : t.settings.save}
+        </button>
+
+        {isDirty && (
+          <button
+            type="button"
+            className="prism-btn prism-btn-ghost"
+            onClick={handleDiscard}
+          >
+            {t.settings.discardChanges}
+          </button>
+        )}
+      </div>
+
 
       {/* Modals */}
       <PasswordManageModal
