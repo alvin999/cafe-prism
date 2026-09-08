@@ -7,7 +7,7 @@ import { hashText } from '../utils/hash.js';
 
 // ─── Main pipeline ────────────────────────────────────────────────────────────
 export async function runResearchPipeline(settings, onProgress) {
-  const isDiscovery = !!settings.discoveryMode;
+  const isDiscovery = settings.discoveryMode !== false;
   const keywords = (settings.keywords || '')
     .split(',').map(k => k.trim()).filter(Boolean);
 

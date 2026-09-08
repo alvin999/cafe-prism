@@ -3,6 +3,7 @@ import { useDashboard } from '../hooks/useDashboard.js';
 import ResearchCard from '../components/Dashboard/ResearchCard.jsx';
 import ProgressBar from '../components/Dashboard/ProgressBar.jsx';
 import UnlockModal from '../components/UnlockModal.jsx';
+import TopicQuickBar from '../components/Dashboard/TopicQuickBar.jsx';
 
 export default function Dashboard() {
   const { t, lang } = useLang();
@@ -26,7 +27,7 @@ export default function Dashboard() {
   return (
     <div className="animate-fade-in">
       {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 className="prism-page-title" style={{ margin: 0 }}>
             {t.dashboard.title}
@@ -61,6 +62,9 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Quick Topic / Discovery Strategy Bar */}
+      <TopicQuickBar t={t} />
 
       {/* Crawl Observability Bar */}
       {sourceStatus && (

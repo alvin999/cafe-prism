@@ -36,10 +36,12 @@ export const Storage = {
 
   getSettings: () => {
     const raw = Storage.getRawSettings();
+    const discoveryMode = raw.discoveryMode !== undefined ? raw.discoveryMode : true;
     if (!raw._encrypted_keys) {
       const normalizedKeys = normalizeApiKeys(raw);
       return {
         ...raw,
+        discoveryMode,
         apiKeys: normalizedKeys,
         apiKey: normalizedKeys[raw.provider || 'groq'] || raw.apiKey || '',
       };
@@ -49,6 +51,7 @@ export const Storage = {
       const keys = sessionDecryptedKeys.apiKeys || (sessionDecryptedKeys.apiKey ? { [raw.provider || 'groq']: sessionDecryptedKeys.apiKey } : {});
       return {
         ...raw,
+        discoveryMode,
         apiKeys: keys,
         apiKey: keys[raw.provider || 'groq'] || sessionDecryptedKeys.apiKey || '',
         botToken: sessionDecryptedKeys.botToken || '',
@@ -57,6 +60,7 @@ export const Storage = {
     // 尚未解鎖時，遮蔽敏感金鑰
     return {
       ...raw,
+      discoveryMode,
       apiKeys: {},
       apiKey: '',
       botToken: '',

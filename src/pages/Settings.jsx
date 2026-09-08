@@ -190,7 +190,7 @@ export default function Settings() {
     botToken: '',
     chatId: '',
     keywords: 'espresso extraction, coffee brewing, roasting',
-    discoveryMode: false,
+    discoveryMode: true,
     enablePapers: true,
     enableNews: true,
     enableReddit: true,
@@ -247,10 +247,12 @@ export default function Settings() {
     window.addEventListener('cr:storage-unlocked', handleSync);
     window.addEventListener('cr:storage-locked', handleSync);
     window.addEventListener('cr:storage-protection-changed', handleSync);
+    window.addEventListener('cr:settings-updated', handleSync);
     return () => {
       window.removeEventListener('cr:storage-unlocked', handleSync);
       window.removeEventListener('cr:storage-locked', handleSync);
       window.removeEventListener('cr:storage-protection-changed', handleSync);
+      window.removeEventListener('cr:settings-updated', handleSync);
     };
   }, []);
 
@@ -322,6 +324,7 @@ export default function Settings() {
 
   const save = async () => {
     await Storage.saveSettings(s);
+    window.dispatchEvent(new Event('cr:settings-updated'));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -675,16 +678,79 @@ export default function Settings() {
           </div>
         </div>
 
-        <Field label={t.settings.keywords}>
-          <input
-            className="prism-input"
-            style={{ opacity: s.discoveryMode ? 0.4 : 1 }}
-            value={s.keywords}
-            onChange={e => update('keywords', e.target.value)}
-            placeholder="espresso, pour over, roasting..."
-            disabled={s.discoveryMode}
-          />
-        </Field>
+        {s.discoveryMode ? (
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 'var(--prism-radius-md, 8px)',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              marginBottom: '20px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: 'var(--prism-success, #4caf50)',
+                  background: 'rgba(76, 175, 80, 0.12)',
+                  border: '1px solid rgba(76, 175, 80, 0.25)',
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                {t.settings.discoveryActiveBadge}
+              </span>
+            </div>
+            <p style={{ fontSize: '12.5px', color: 'var(--prism-text-secondary)', margin: '0 0 10px', lineHeight: 1.5 }}>
+              {t.settings.discoveryActiveDesc}
+            </p>
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                fontSize: '12px',
+                color: 'var(--prism-text-muted)',
+                background: 'rgba(0, 0, 0, 0.2)',
+                padding: '10px 12px',
+                borderRadius: '6px',
+                border: '1px solid rgba(255, 255, 255, 0.04)',
+                marginBottom: '10px',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <span>🔬</span>
+                <span>{t.settings.discoveryScholarKeywords}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <span>🔥</span>
+                <span>{t.settings.discoveryRedditKeywords}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                <span>📰</span>
+                <span>{t.settings.discoveryRssKeywords}</span>
+              </div>
+            </div>
+            <p style={{ fontSize: '11.5px', color: 'var(--prism-text-muted)', margin: 0, lineHeight: 1.4 }}>
+              {t.settings.discoverySwitchToCustomHint}
+            </p>
+          </div>
+        ) : (
+          <Field label={t.settings.customKeywordsTitle} hint={t.settings.customKeywordsHint}>
+            <input
+              className="prism-input"
+              style={{ width: '100%' }}
+              value={s.keywords}
+              onChange={e => update('keywords', e.target.value)}
+              placeholder={t.settings.customKeywordsPlaceholder}
+            />
+          </Field>
+        )}
         {[
           { key: 'enablePapers', label: t.settings.enablePapers },
           { key: 'enableNews', label: t.settings.enableNews },
