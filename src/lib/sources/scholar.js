@@ -1,46 +1,58 @@
-import { fetchFromProxy } from '../api/proxy.js';
+import { fetchFromProxy, fetchWithTimeout } from '../api/proxy.js';
 
-// 精選高引用咖啡科學論文集（當 Semantic Scholar 429 速率限制時自動無縫備援）
-const FALLBACK_PAPERS = [
-  {
-    title: 'Systematically Improving Espresso: Insights from Mathematical Modeling and Experiment',
-    link: 'https://www.cell.com/matter/fulltext/S2590-2385(19)30410-2',
-    description: 'A mathematical model of espresso extraction reveals that finer grind sizes lead to uneven flow and lower extraction yields. Reducing coffee dose and using coarser grind yields reproducible shots.',
-    pubDate: '2020',
-    source: 'semantic_scholar',
-    authors: 'Cameron M. Foster, et al.',
-    citationCount: 142,
-  },
-  {
-    title: 'Impact of Water Hardness and Cation Balance on Coffee Flavor Extraction',
-    link: 'https://pubs.acs.org/doi/10.1021/jf501687c',
-    description: 'Magnesium (Mg2+) enhances the extraction of flavor compounds including oxygen-rich aromatic molecules, whereas high bicarbonate levels buffer desirable fruit acids.',
-    pubDate: '2021',
-    source: 'semantic_scholar',
-    authors: 'Christopher H. Hendon, Lesley Colonna-Dashwood',
-    citationCount: 98,
-  },
-  {
-    title: 'Degassing Kinetics and Freshness Retention in Specialty Roasted Coffee Beans',
-    link: 'https://www.sciencedirect.com/science/article/pii/S096399692200311X',
-    description: 'Investigation of carbon dioxide release kinetics and volatile degradation rates under varied headspace conditions and valve packaging over a 60-day resting period.',
-    pubDate: '2022',
-    source: 'semantic_scholar',
-    authors: 'S. Schenker, R. Perren, F. Escher',
-    citationCount: 76,
-  },
-  {
-    title: 'Thermal Dynamics of Commercial Espresso Groupheads and Extraction Uniformity',
-    link: 'https://www.sciencedirect.com/science/article/pii/S0260877423001887',
-    description: 'Detailed analysis of temperature stability curves during multi-shot brewing sequences, highlighting extraction temperature variations and channel formation.',
-    pubDate: '2023',
-    source: 'semantic_scholar',
-    authors: 'A. Parenti, et al.',
-    citationCount: 54,
+// ─── Helper: 還原 OpenAlex 倒排索引摘要 ──────────────────────────────────────
+function reconstructAbstract(invertedIndex) {
+  if (!invertedIndex || typeof invertedIndex !== 'object') return '';
+  const words = [];
+  for (const [word, positions] of Object.entries(invertedIndex)) {
+    if (Array.isArray(positions)) {
+      for (const pos of positions) {
+        words[pos] = word;
+      }
+    }
   }
-];
+  return words.filter(Boolean).join(' ').slice(0, 600);
+}
 
-// ─── Semantic Scholar fetcher ────────────────────────────────────────────────
+// ─── OpenAlex fetcher (免 API Key、高限額真實學術搜尋) ────────────────────────
+export async function fetchOpenAlex(keywords, discoveryMode = false) {
+  const query = (discoveryMode || keywords.length === 0)
+    ? 'coffee espresso extraction brewing'
+    : keywords.join(' ');
+
+  const currentYear = new Date().getFullYear();
+  const filterParam = discoveryMode ? `&filter=from_publication_date:${currentYear - 3}-01-01` : '';
+  const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per_page=8&sort=cited_by_count:desc${filterParam}`;
+
+  const res = await fetchWithTimeout(url, {
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'CafePrism/1.0 (mailto:cafe-prism@research.local)',
+    }
+  }, 8000);
+
+  if (!res.ok) {
+    throw new Error(`OpenAlex API 錯誤 (HTTP ${res.status})`);
+  }
+
+  const data = await res.json();
+  if (data?.results && Array.isArray(data.results)) {
+    return data.results
+      .filter(p => p.display_name || p.title)
+      .map(p => ({
+        title: p.display_name || p.title,
+        link: p.doi || p.primary_location?.landing_page_url || (p.id ? `https://openalex.org/${p.id.split('/').pop()}` : ''),
+        description: reconstructAbstract(p.abstract_inverted_index) || p.display_name || '',
+        pubDate: p.publication_year ? String(p.publication_year) : '',
+        source: 'semantic_scholar',
+        authors: (p.authorships || []).map(a => a.author?.display_name).filter(Boolean).slice(0, 5).join(', '),
+        citationCount: p.cited_by_count || 0,
+      }));
+  }
+  return [];
+}
+
+// ─── Semantic Scholar fetcher (優先嘗試，若 429 則切換至 OpenAlex 真實學術搜尋) ──
 export async function fetchSemanticScholar(keywords, discoveryMode = false) {
   let query;
   if (discoveryMode || keywords.length === 0) {
@@ -56,7 +68,7 @@ export async function fetchSemanticScholar(keywords, discoveryMode = false) {
 
   try {
     const data = await fetchFromProxy('/api-scholar', endpoint, true);
-    if (data?.data && data.data.length > 0) {
+    if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
       return data.data.map(p => ({
         title: p.title,
         link: p.url || `https://www.semanticscholar.org/paper/${p.paperId}`,
@@ -68,9 +80,20 @@ export async function fetchSemanticScholar(keywords, discoveryMode = false) {
       }));
     }
   } catch (err) {
-    console.warn('[Semantic Scholar] API limited (429) or unavailable, activating research seed fallback...', err);
+    console.warn('[Semantic Scholar] 429 速率限制或連線受阻，自動切換至 OpenAlex 真實學術搜尋引擎...', err);
   }
 
-  // 備援：若 Semantic Scholar 429 限流或無回應，回傳經典論文種子資料
-  return FALLBACK_PAPERS;
+  // 備援切換：當 Semantic Scholar 429 限流或無回應時，使用 OpenAlex 搜尋真實學術論文
+  try {
+    const openAlexPapers = await fetchOpenAlex(keywords, discoveryMode);
+    if (openAlexPapers.length > 0) {
+      return openAlexPapers;
+    }
+  } catch (oaErr) {
+    console.error('[OpenAlex] 學術搜尋失敗:', oaErr);
+    throw new Error(`無法連線至學術論文來源 (Semantic Scholar 429 且 OpenAlex 連線逾時): ${oaErr.message}`);
+  }
+
+  return [];
 }
+

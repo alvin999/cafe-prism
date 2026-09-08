@@ -5,7 +5,7 @@ import ProgressBar from '../components/Dashboard/ProgressBar.jsx';
 import UnlockModal from '../components/UnlockModal.jsx';
 import TopicQuickBar from '../components/Dashboard/TopicQuickBar.jsx';
 
-export default function Dashboard() {
+export default function Dashboard({ onNavigate }) {
   const { t, lang } = useLang();
   const {
     cards,
@@ -146,58 +146,67 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Firewall / Network Restriction Warning Banner */}
-      {sourceStatus && Object.values(sourceStatus).some(s => s.status === 'failed') && !running && (
-        <div className="prism-card animate-fade-in" style={{
-          borderColor: 'rgba(234, 179, 8, 0.3)',
-          background: 'rgba(234, 179, 8, 0.07)',
-          padding: '14px 18px',
-          marginBottom: '20px',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '12px',
-        }}>
-          <span style={{ fontSize: '20px', flexShrink: 0 }}>🛡️</span>
-          <div style={{ flex: 1 }}>
-            <div style={{
-              fontWeight: 600,
-              color: 'var(--prism-amber-400)',
-              fontSize: '13.5px',
-              marginBottom: '4px'
-            }}>
-              {t.dashboard.firewallNoticeTitle}
+      {/* Source Unresponsive Warning Banner */}
+      {sourceStatus && Object.values(sourceStatus).some(s => s.status === 'failed') && !running && (() => {
+        const failedNames = Object.entries(sourceStatus)
+          .filter(([_, s]) => s.status === 'failed')
+          .map(([key]) => t.dashboard.sourcesStatus[key === 'semantic_scholar' ? 'scholar' : key] || key)
+          .join('、');
+
+        return (
+          <div className="prism-card animate-fade-in" style={{
+            borderColor: 'rgba(234, 179, 8, 0.3)',
+            background: 'rgba(234, 179, 8, 0.07)',
+            padding: '14px 18px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '240px' }}>
+              <span style={{ fontSize: '20px', flexShrink: 0 }}>⚠️</span>
+              <div>
+                <div style={{
+                  fontWeight: 600,
+                  color: 'var(--prism-amber-400)',
+                  fontSize: '13.5px',
+                  marginBottom: '2px'
+                }}>
+                  {t.dashboard.sourceWarningTitle}
+                </div>
+                <div style={{
+                  fontSize: '12.5px',
+                  color: 'var(--prism-text-secondary)',
+                  lineHeight: 1.5,
+                }}>
+                  {t.dashboard.sourceWarningDesc.replace('{sources}', failedNames || t.dashboard.sourcesStatus.title)}
+                </div>
+              </div>
             </div>
-            <div style={{
-              fontSize: '12px',
-              color: 'var(--prism-text-secondary)',
-              lineHeight: 1.6,
-              marginBottom: '4px'
-            }}>
-              {t.dashboard.firewallNoticeDesc}
-            </div>
-            <div style={{
-              fontSize: '11.5px',
-              color: 'var(--prism-amber-300)',
-              lineHeight: 1.5
-            }}>
-              {t.dashboard.firewallNoticeTip}
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (onNavigate) {
+                  onNavigate('settings');
+                } else {
+                  document.querySelector('[data-nav="settings"]')?.click();
+                }
+              }}
+              className="prism-btn prism-btn-sm prism-btn-primary"
+              style={{
+                flexShrink: 0,
+                alignSelf: 'center',
+                textDecoration: 'none',
+                fontSize: '12px'
+              }}
+            >
+              {t.dashboard.sourceWarningBtn} →
+            </button>
           </div>
-          <a
-            href="#settings"
-            onClick={e => { e.preventDefault(); document.querySelector('[data-nav="settings"]')?.click(); }}
-            className="prism-btn prism-btn-sm prism-btn-primary"
-            style={{
-              flexShrink: 0,
-              alignSelf: 'center',
-              textDecoration: 'none',
-              fontSize: '12px'
-            }}
-          >
-            {t.dashboard.firewallGoSettings} →
-          </a>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Legend */}
       <div className="prism-card" style={{

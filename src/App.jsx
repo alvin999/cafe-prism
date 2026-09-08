@@ -157,6 +157,7 @@ export default function App() {
               onDirtyChange={setHasUnsavedSettings}
               saveRef={saveSettingsRef}
               discardRef={discardSettingsRef}
+              onNavigate={handleNavClick}
             />
           </main>
         </div>

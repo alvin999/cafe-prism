@@ -17,14 +17,16 @@ export async function fetchReddit(keywords, discoveryMode = false) {
   try {
     const data = await fetchFromProxy('/api-reddit', endpoint, true, 7000);
     if (data?.data?.children && data.data.children.length > 0) {
-      return data.data.children.map(c => ({
-        title: c.data.title,
-        link: `https://reddit.com${c.data.permalink}`,
-        description: c.data.selftext?.slice(0, 500) || c.data.title,
-        pubDate: new Date(c.data.created_utc * 1000).toISOString(),
-        source: 'reddit',
-        score: c.data.score || 0,
-      }));
+      return data.data.children
+        .filter(c => !c.data.stickied && !c.data.pinned && !/^\[MOD\]/i.test(c.data.title) && !/daily question thread/i.test(c.data.title))
+        .map(c => ({
+          title: c.data.title,
+          link: `https://reddit.com${c.data.permalink}`,
+          description: c.data.selftext?.slice(0, 500) || c.data.title,
+          pubDate: new Date(c.data.created_utc * 1000).toISOString(),
+          source: 'reddit',
+          score: c.data.score || 0,
+        }));
     }
   } catch (err) {
     jsonError = err;
@@ -40,11 +42,13 @@ export async function fetchReddit(keywords, discoveryMode = false) {
       const xml = await res.text();
       const items = parseRSS(xml);
       if (items && items.length > 0) {
-        return items.map(item => ({
-          ...item,
-          source: 'reddit',
-          score: 15,
-        }));
+        return items
+          .filter(item => !/^\[MOD\]/i.test(item.title) && !/daily question thread/i.test(item.title))
+          .map(item => ({
+            ...item,
+            source: 'reddit',
+            score: 15,
+          }));
       }
     } else {
       const detail = await res.text().catch(() => '');

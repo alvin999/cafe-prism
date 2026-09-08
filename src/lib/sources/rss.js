@@ -95,11 +95,6 @@ export async function fetchCoffeeRSS(keywords, discoveryMode = false) {
         );
       }
 
-      // 若過濾後無結果，但原 items 有資料且處於關鍵字模式，保留前 3 篇相關度較高者避免空列表
-      if (filtered.length === 0 && items.length > 0) {
-        filtered = items.slice(0, 3);
-      }
-
       results.push(...filtered.map(i => ({ ...i, feedUrl: feed })));
       if (results.length >= 12) break; // 取得足夠資料即停止
     } catch (err) {
@@ -107,8 +102,8 @@ export async function fetchCoffeeRSS(keywords, discoveryMode = false) {
     }
   }
 
-  // 若所有來源皆未取得資料，絕不可靜默回傳 []，必須 throw 錯誤讓狀態正確呈現為紅燈
-  if (results.length === 0) {
+  // 若所有來源皆連線失敗，throw 錯誤讓狀態正確呈現為紅燈
+  if (results.length === 0 && errors.length > 0) {
     throw new Error(errors[0] || '無法連線至任何新聞來源（連線受阻或伺服器逾時）');
   }
 
