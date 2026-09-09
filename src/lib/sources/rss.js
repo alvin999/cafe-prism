@@ -1,4 +1,5 @@
 import { fetchWithTimeout } from '../api/proxy.js';
+import { getDailyDiscoveryTopic } from '../pipeline/topics.js';
 
 // ─── RSS parser ─────────────────────────────────────────────────────────────
 export function parseRSS(xmlText) {
@@ -73,38 +74,104 @@ async function fetchFeedContent(url) {
 }
 
 export async function fetchCoffeeRSS(keywords, discoveryMode = false) {
-  const feeds = [
-    'https://news.google.com/rss/search?q=specialty+coffee+espresso+brewing&hl=en-US&gl=US&ceid=US:en',
-    'https://sprudge.com/feed',
-    'https://news.google.com/rss/search?q=coffee+roasting+cafe+industry&hl=en-US&gl=US&ceid=US:en',
-  ];
+  const isDiscovery = discoveryMode || keywords.length === 0;
+  const currentTopic = isDiscovery ? getDailyDiscoveryTopic() : null;
 
-  const results = [];
-  const errors = [];
+  // 雙軌制來源規劃：軌道 1（今日即時頭條與產業快訊）＋ 軌道 2（今日探索主題深入專欄）
+  let feedConfigs = [];
 
-  for (const feed of feeds) {
+  if (isDiscovery) {
+    feedConfigs = [
+      // 軌道 1：即時頭條新聞 (Trending Breaking News ~50%)
+      {
+        url: 'https://news.google.com/rss/search?q=specialty+coffee+espresso+brewing&hl=en-US&gl=US&ceid=US:en',
+        type: 'trending',
+        quota: 6,
+      },
+      {
+        url: 'https://sprudge.com/feed',
+        type: 'trending',
+        quota: 5,
+      },
+      // 軌道 2：當日主題深入專題 (Topic News ~50%)
+      {
+        url: `https://news.google.com/rss/search?q=${encodeURIComponent(currentTopic.newsQuery)}&hl=en-US&gl=US&ceid=US:en`,
+        type: 'topic',
+        quota: 7,
+      },
+    ];
+  } else {
+    const userQuery = keywords.join(' ');
+    feedConfigs = [
+      {
+        url: `https://news.google.com/rss/search?q=${encodeURIComponent(userQuery)}&hl=en-US&gl=US&ceid=US:en`,
+        type: 'custom',
+        quota: 8,
+      },
+      {
+        url: 'https://sprudge.com/feed',
+        type: 'custom',
+        quota: 5,
+      },
+      {
+        url: 'https://news.google.com/rss/search?q=specialty+coffee+espresso+brewing&hl=en-US&gl=US&ceid=US:en',
+        type: 'custom',
+        quota: 4,
+      },
+    ];
+  }
+
+  // 平行抓取各 Feed，兼顧效率與雙軌多元性
+  const feedPromises = feedConfigs.map(async (cfg) => {
     try {
-      const xml = await fetchFeedContent(feed);
+      const xml = await fetchFeedContent(cfg.url);
       const items = parseRSS(xml);
-
       let filtered = items;
-      if (!discoveryMode && keywords.length > 0) {
+      if (!isDiscovery && keywords.length > 0) {
         const kw = keywords.map(k => k.toLowerCase());
         filtered = items.filter(item =>
           kw.some(k => item.title.toLowerCase().includes(k) || item.description.toLowerCase().includes(k))
         );
       }
-
-      results.push(...filtered.map(i => ({ ...i, feedUrl: feed })));
-      if (results.length >= 12) break; // 取得足夠資料即停止
+      return filtered.slice(0, cfg.quota).map(i => ({
+        ...i,
+        feedUrl: cfg.url,
+        feedType: cfg.type,
+        topic: cfg.type === 'topic' ? currentTopic?.label : null,
+      }));
     } catch (err) {
-      errors.push(err.message || '連線失敗');
+      console.warn(`[RSS] Failed to fetch feed ${cfg.url}:`, err.message);
+      return [];
     }
+  });
+
+  const settled = await Promise.allSettled(feedPromises);
+  const rawItems = [];
+  settled.forEach(res => {
+    if (res.status === 'fulfilled' && Array.isArray(res.value)) {
+      rawItems.push(...res.value);
+    }
+  });
+
+  // 去重（避免相同文章重複出現在不同 Feed）
+  const seenUrls = new Set();
+  const seenTitles = new Set();
+  const results = [];
+
+  for (const item of rawItems) {
+    const normUrl = (item.link || '').toLowerCase().trim();
+    const normTitle = (item.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (normUrl && seenUrls.has(normUrl)) continue;
+    if (normTitle && seenTitles.has(normTitle)) continue;
+
+    if (normUrl) seenUrls.add(normUrl);
+    if (normTitle) seenTitles.add(normTitle);
+    results.push(item);
   }
 
   // 若所有來源皆連線失敗，throw 錯誤讓狀態正確呈現為紅燈
-  if (results.length === 0 && errors.length > 0) {
-    throw new Error(errors[0] || '無法連線至任何新聞來源（連線受阻或伺服器逾時）');
+  if (results.length === 0) {
+    throw new Error('無法連線至任何新聞來源（連線受阻或伺服器逾時）');
   }
 
   return results;
