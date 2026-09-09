@@ -4,6 +4,35 @@ import { fetchReddit } from '../sources/reddit.js';
 import { callLLM, buildGroundedSummaryPrompt, parseAIGeneratedJSON } from '../llm/index.js';
 import { computeConfidence, detectConflicts } from '../analyze/confidence.js';
 import { hashText } from '../utils/hash.js';
+import { Storage } from '../utils/storage.js';
+
+// ─── Extract seen paper/article keys from past history for anti-duplication ───
+export function getSeenHistoryKeys(history = []) {
+  const seen = new Set();
+  if (!Array.isArray(history)) return seen;
+
+  for (const entry of history) {
+    const cards = entry?.cards || [];
+    for (const card of cards) {
+      if (card.primaryTitle) {
+        seen.add(card.primaryTitle.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      }
+      if (Array.isArray(card.articles)) {
+        for (const art of card.articles) {
+          if (art.link) {
+            seen.add(art.link.toLowerCase().trim());
+            const doiMatch = art.link.match(/10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i);
+            if (doiMatch) seen.add(doiMatch[0].toLowerCase());
+          }
+          if (art.title) {
+            seen.add(art.title.toLowerCase().replace(/[^a-z0-9]/g, ''));
+          }
+        }
+      }
+    }
+  }
+  return seen;
+}
 
 // ─── Main pipeline ────────────────────────────────────────────────────────────
 export async function runResearchPipeline(settings, onProgress) {
@@ -108,13 +137,37 @@ export async function runResearchPipeline(settings, onProgress) {
   const redditClusters = clusterBySource(redditArticles, 'reddit');
   const rssClusters = clusterBySource(rssArticles, 'rss');
 
-  // 2. Diversified Picker (Guarantee quotas for each available source: 1-2 Scholar, 2-3 RSS, 2-3 Reddit)
+  // 讀取近期歷史紀錄進行去重排重 (歷史避讓防重複)
+  const history = settings.history || (typeof Storage !== 'undefined' ? Storage.getHistory() : []);
+  const seenHistoryKeys = getSeenHistoryKeys(history);
+
+  // Helper: 檢查該 cluster 是否曾在歷史紀錄中出現過
+  const isClusterSeen = (clusterItem) => {
+    return clusterItem.cluster.some(article => {
+      const linkKey = (article.link || '').toLowerCase().trim();
+      const titleKey = (article.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const doiMatch = (article.link || '').match(/10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i);
+      const doiKey = doiMatch ? doiMatch[0].toLowerCase() : null;
+      return (
+        (linkKey && seenHistoryKeys.has(linkKey)) ||
+        (titleKey && seenHistoryKeys.has(titleKey)) ||
+        (doiKey && seenHistoryKeys.has(doiKey))
+      );
+    });
+  };
+
+  // 2. Diversified Picker (Guarantee quotas for each available source, prioritize unseen clusters)
   const selectedClusters = new Set();
   const selected = [];
 
   const addClusters = (pool, quota) => {
     let added = 0;
-    for (const sc of pool) {
+    // 優先挑選歷史中未看過的文章，已讀文章排在隊列後方作為備援
+    const candidates = [
+      ...pool.filter(c => !isClusterSeen(c)),
+      ...pool.filter(c => isClusterSeen(c)),
+    ];
+    for (const sc of candidates) {
       if (added >= quota) break;
       if (!selectedClusters.has(sc)) {
         selected.push(sc);
@@ -129,8 +182,13 @@ export async function runResearchPipeline(settings, onProgress) {
   addClusters(rssClusters, 2);
   addClusters(redditClusters, 3);
 
-  // Fallback: If not enough, fill with remaining highest-scoring clusters until 6
-  const remainingAll = [...scholarClusters, ...rssClusters, ...redditClusters].sort((a, b) => b.score - a.score);
+  // Fallback: If not enough, fill with remaining highest-scoring clusters until 6 (unseen first)
+  const remainingAll = [...scholarClusters, ...rssClusters, ...redditClusters].sort((a, b) => {
+    const seenA = isClusterSeen(a) ? 1 : 0;
+    const seenB = isClusterSeen(b) ? 1 : 0;
+    if (seenA !== seenB) return seenA - seenB;
+    return b.score - a.score;
+  });
   for (const sc of remainingAll) {
     if (selected.length >= 6) break;
     if (!selectedClusters.has(sc)) {
