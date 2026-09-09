@@ -196,6 +196,7 @@ const normalizeSettings = (raw = {}) => {
     keywords: raw.keywords !== undefined ? raw.keywords : 'espresso extraction, coffee brewing, roasting',
     discoveryMode: raw.discoveryMode !== undefined ? !!raw.discoveryMode : true,
     enablePapers: raw.enablePapers !== undefined ? !!raw.enablePapers : true,
+    scholarApiKey: raw.scholarApiKey || '',
     enableNews: raw.enableNews !== undefined ? !!raw.enableNews : true,
     enableReddit: raw.enableReddit !== undefined ? !!raw.enableReddit : true,
     autoTelegram: raw.autoTelegram !== undefined ? !!raw.autoTelegram : false,
@@ -207,7 +208,7 @@ const areSettingsEqual = (a, b) => {
   const fields = [
     'modelType', 'ollamaUrl', 'ollamaModel', 'provider', 'model',
     'botToken', 'chatId', 'keywords', 'discoveryMode',
-    'enablePapers', 'enableNews', 'enableReddit', 'autoTelegram'
+    'enablePapers', 'scholarApiKey', 'enableNews', 'enableReddit', 'autoTelegram'
   ];
   for (const field of fields) {
     if (a[field] !== b[field]) return false;
@@ -815,9 +816,48 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
           { key: 'enableNews', label: t.settings.enableNews },
           { key: 'enableReddit', label: t.settings.enableReddit },
         ].map(({ key, label }) => (
-          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
-            <Toggle fieldKey={key} />
-            <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)' }}>{label}</span>
+          <div key={key}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: key === 'enablePapers' && s.enablePapers !== false ? '10px' : '14px' }}>
+              <Toggle fieldKey={key} />
+              <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)' }}>{label}</span>
+            </div>
+            {key === 'enablePapers' && s.enablePapers !== false && (
+              <div style={{ marginLeft: '48px', marginBottom: '18px', maxWidth: '520px' }}>
+                <Field label={t.settings.scholarApiKey} hint={t.settings.scholarApiKeyHint}>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      className="prism-input"
+                      type="password"
+                      style={{ flex: 1 }}
+                      value={s.scholarApiKey}
+                      onChange={e => update('scholarApiKey', e.target.value)}
+                      placeholder={isProtected && !isUnlocked ? t.settings.tokenLockedPlaceholder : t.settings.scholarApiKeyPlaceholder}
+                      disabled={isProtected && !isUnlocked}
+                    />
+                    {isProtected && !isUnlocked && (
+                      <button
+                        type="button"
+                        onClick={() => setModalType('unlock')}
+                        className="prism-btn prism-btn-primary"
+                        style={{ padding: '0 16px' }}
+                      >
+                        🔓 {t.settings.unlockBtn}
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ marginTop: '6px' }}>
+                    <a
+                      href="https://www.semanticscholar.org/product/api#api-key-form"
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{ fontSize: '12px', color: 'var(--prism-amber-400)', textDecoration: 'none' }}
+                    >
+                      {t.settings.scholarApplyKey}
+                    </a>
+                  </div>
+                </Field>
+              </div>
+            )}
           </div>
         ))}
       </Section>

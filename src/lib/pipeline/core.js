@@ -17,7 +17,7 @@ export async function runResearchPipeline(settings, onProgress) {
   // Parallel fetch for speed with named tasks for observability
   const tasks = [];
   if (settings.enablePapers !== false) {
-    tasks.push({ key: 'semantic_scholar', name: 'Semantic Scholar', promise: fetchSemanticScholar(keywords, isDiscovery) });
+    tasks.push({ key: 'semantic_scholar', name: 'Semantic Scholar', promise: fetchSemanticScholar(keywords, isDiscovery, settings.scholarApiKey) });
   }
   if (settings.enableNews !== false) {
     tasks.push({ key: 'rss', name: 'RSS', promise: fetchCoffeeRSS(keywords, isDiscovery) });

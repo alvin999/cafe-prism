@@ -53,7 +53,7 @@ export async function fetchOpenAlex(keywords, discoveryMode = false) {
 }
 
 // ─── Semantic Scholar fetcher (優先嘗試，若 429 則切換至 OpenAlex 真實學術搜尋) ──
-export async function fetchSemanticScholar(keywords, discoveryMode = false) {
+export async function fetchSemanticScholar(keywords, discoveryMode = false, apiKey = '') {
   let query;
   if (discoveryMode || keywords.length === 0) {
     query = 'coffee OR espresso OR "coffee research"';
@@ -66,8 +66,10 @@ export async function fetchSemanticScholar(keywords, discoveryMode = false) {
 
   const endpoint = `/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=8&fields=title,abstract,year,authors,url,citationCount${sort}${yearSuffix}`;
 
+  const headers = apiKey ? { 'x-api-key': apiKey.trim() } : {};
+
   try {
-    const data = await fetchFromProxy('/api-scholar', endpoint, true);
+    const data = await fetchFromProxy('/api-scholar', endpoint, true, 8000, headers);
     if (data?.data && Array.isArray(data.data) && data.data.length > 0) {
       return data.data.map(p => ({
         title: p.title,

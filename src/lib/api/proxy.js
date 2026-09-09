@@ -17,9 +17,9 @@ export async function fetchWithTimeout(url, options = {}, timeoutMs = 8000) {
   }
 }
 
-export async function fetchFromProxy(proxyPath, endpoint, asJson = false, timeoutMs = 8000) {
+export async function fetchFromProxy(proxyPath, endpoint, asJson = false, timeoutMs = 8000, extraHeaders = {}) {
   const url = `${proxyPath}${endpoint}`;
-  const r = await fetchWithTimeout(url, {}, timeoutMs);
+  const r = await fetchWithTimeout(url, { headers: extraHeaders }, timeoutMs);
   if (!r.ok) {
     const detail = await r.text().catch(() => '');
     const cleanDetail = detail ? detail.trim().split('\n')[0] : '';

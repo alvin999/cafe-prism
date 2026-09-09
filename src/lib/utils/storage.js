@@ -44,6 +44,7 @@ export const Storage = {
         discoveryMode,
         apiKeys: normalizedKeys,
         apiKey: normalizedKeys[raw.provider || 'groq'] || raw.apiKey || '',
+        scholarApiKey: raw.scholarApiKey || '',
       };
     }
     // 已啟用密碼保護
@@ -55,6 +56,7 @@ export const Storage = {
         apiKeys: keys,
         apiKey: keys[raw.provider || 'groq'] || sessionDecryptedKeys.apiKey || '',
         botToken: sessionDecryptedKeys.botToken || '',
+        scholarApiKey: sessionDecryptedKeys.scholarApiKey || '',
       };
     }
     // 尚未解鎖時，遮蔽敏感金鑰
@@ -64,6 +66,7 @@ export const Storage = {
       apiKeys: {},
       apiKey: '',
       botToken: '',
+      scholarApiKey: '',
     };
   },
 
@@ -79,6 +82,7 @@ export const Storage = {
           apiKey: s.apiKey ?? sessionDecryptedKeys?.apiKey ?? '',
           apiKeys: s.apiKeys ?? sessionDecryptedKeys?.apiKeys ?? (s.apiKey ? { [s.provider || 'groq']: s.apiKey } : {}),
           botToken: s.botToken ?? sessionDecryptedKeys?.botToken ?? '',
+          scholarApiKey: s.scholarApiKey ?? sessionDecryptedKeys?.scholarApiKey ?? '',
         };
         const encrypted = await encryptSensitiveData(sensitive, sessionPassword);
         toSave._encrypted_keys = encrypted;
@@ -91,6 +95,7 @@ export const Storage = {
       delete toSave.apiKey;
       delete toSave.apiKeys;
       delete toSave.botToken;
+      delete toSave.scholarApiKey;
       localStorage.setItem('cr_settings', JSON.stringify(toSave));
     } else {
       // 未啟用密碼保護，直接儲存
@@ -111,6 +116,7 @@ export const Storage = {
       apiKey: decrypted.apiKey || (keys[raw.provider || 'groq'] || ''),
       apiKeys: keys,
       botToken: decrypted.botToken || '',
+      scholarApiKey: decrypted.scholarApiKey || '',
     };
 
     if (typeof window !== 'undefined') {
@@ -132,6 +138,7 @@ export const Storage = {
       apiKey: currentSettings.apiKey || sessionDecryptedKeys?.apiKey || '',
       apiKeys: currentSettings.apiKeys || sessionDecryptedKeys?.apiKeys || (currentSettings.apiKey ? { [currentSettings.provider || 'groq']: currentSettings.apiKey } : {}),
       botToken: currentSettings.botToken || sessionDecryptedKeys?.botToken || '',
+      scholarApiKey: currentSettings.scholarApiKey || sessionDecryptedKeys?.scholarApiKey || '',
     };
     const encrypted = await encryptSensitiveData(sensitive, password);
 
@@ -143,6 +150,7 @@ export const Storage = {
     delete toSave.apiKey;
     delete toSave.apiKeys;
     delete toSave.botToken;
+    delete toSave.scholarApiKey;
 
     localStorage.setItem('cr_settings', JSON.stringify(toSave));
     if (typeof window !== 'undefined') {

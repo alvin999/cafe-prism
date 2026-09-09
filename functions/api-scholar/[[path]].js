@@ -22,13 +22,19 @@ export async function onRequest(context) {
   const targetUrl = `https://api.semanticscholar.org${subPath}${url.search}`;
 
   try {
+    const targetHeaders = {
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Accept': 'application/json',
+    };
+    const incomingApiKey = request.headers.get('x-api-key');
+    if (incomingApiKey) {
+      targetHeaders['x-api-key'] = incomingApiKey;
+    }
+
     const resp = await fetch(targetUrl, {
       method: request.method,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-      },
+      headers: targetHeaders,
     });
 
     const contentType = resp.headers.get('content-type') || 'application/json; charset=utf-8';
