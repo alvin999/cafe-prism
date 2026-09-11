@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import ConfidenceBadge from './ConfidenceBadge.jsx';
 import SourceChip from './SourceChip.jsx';
+import { sanitizeHtmlText } from '../../lib/utils/sanitize.js';
 
 export default function ResearchCard({ card, t, lang }) {
   const [expanded, setExpanded] = useState(false);
@@ -241,11 +242,11 @@ export default function ResearchCard({ card, t, lang }) {
               }}>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
                   <SourceChip source={a.source} />
-                  <span style={{ fontSize: '12.5px', color: 'var(--prism-text-primary)', fontWeight: 500, flex: 1 }}>{a.title}</span>
+                  <span style={{ fontSize: '12.5px', color: 'var(--prism-text-primary)', fontWeight: 500, flex: 1 }}>{sanitizeHtmlText(a.title)}</span>
                 </div>
                 {a.description && (
                   <p style={{ fontSize: '12px', color: 'var(--prism-text-muted)', margin: '4px 0 8px', lineHeight: 1.5 }}>
-                    {a.description.slice(0, 200)}…
+                    {sanitizeHtmlText(a.description).slice(0, 200)}…
                   </p>
                 )}
                 <a

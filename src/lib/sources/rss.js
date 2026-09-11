@@ -1,5 +1,6 @@
 import { fetchWithTimeout } from '../api/proxy.js';
 import { getDailyDiscoveryTopic } from '../pipeline/topics.js';
+import { sanitizeHtmlText } from '../utils/sanitize.js';
 
 // ─── RSS parser ─────────────────────────────────────────────────────────────
 export function parseRSS(xmlText) {
@@ -8,10 +9,10 @@ export function parseRSS(xmlText) {
     const doc = parser.parseFromString(xmlText, 'application/xml');
     const items = Array.from(doc.querySelectorAll('item, entry'));
     return items.slice(0, 10).map(item => ({
-      title: item.querySelector('title')?.textContent?.trim() || '',
+      title: sanitizeHtmlText(item.querySelector('title')?.textContent || ''),
       link: item.querySelector('link')?.textContent?.trim() ||
             item.querySelector('link')?.getAttribute('href') || '',
-      description: item.querySelector('description, summary, content')?.textContent?.trim() || '',
+      description: sanitizeHtmlText(item.querySelector('description, summary, content')?.textContent || ''),
       pubDate: item.querySelector('pubDate, published, updated')?.textContent?.trim() || '',
       source: 'rss',
     })).filter(i => i.title && i.link);

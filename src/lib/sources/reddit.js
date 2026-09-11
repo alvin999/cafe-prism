@@ -1,6 +1,7 @@
 import { fetchFromProxy, fetchWithTimeout } from '../api/proxy.js';
 import { parseRSS } from './rss.js';
 import { getDailyDiscoveryTopic } from '../pipeline/topics.js';
+import { sanitizeHtmlText } from '../utils/sanitize.js';
 
 // ─── Reddit fetcher ──────────────────────────────────────────────────────────
 export async function fetchReddit(keywords, discoveryMode = false) {
@@ -26,9 +27,9 @@ export async function fetchReddit(keywords, discoveryMode = false) {
             return data.data.children
               .filter(c => !c.data.stickied && !c.data.pinned && !/^\[MOD\]/i.test(c.data.title) && !/daily question thread/i.test(c.data.title))
               .map(c => ({
-                title: c.data.title,
+                title: sanitizeHtmlText(c.data.title),
                 link: `https://reddit.com${c.data.permalink}`,
-                description: c.data.selftext?.slice(0, 500) || c.data.title,
+                description: sanitizeHtmlText(c.data.selftext?.slice(0, 500) || c.data.title),
                 pubDate: new Date(c.data.created_utc * 1000).toISOString(),
                 source: 'reddit',
                 score: c.data.score || 0,
@@ -73,9 +74,9 @@ export async function fetchReddit(keywords, discoveryMode = false) {
         return data.data.children
           .filter(c => !c.data.stickied && !c.data.pinned && !/^\[MOD\]/i.test(c.data.title) && !/daily question thread/i.test(c.data.title))
           .map(c => ({
-            title: c.data.title,
+            title: sanitizeHtmlText(c.data.title),
             link: `https://reddit.com${c.data.permalink}`,
-            description: c.data.selftext?.slice(0, 500) || c.data.title,
+            description: sanitizeHtmlText(c.data.selftext?.slice(0, 500) || c.data.title),
             pubDate: new Date(c.data.created_utc * 1000).toISOString(),
             source: 'reddit',
             score: c.data.score || 0,
