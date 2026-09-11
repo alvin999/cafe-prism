@@ -7,13 +7,18 @@
 
 ---
 
+<p align="center">
+  <img src="screenshots/cover.png" alt="CaféPrism Dashboard Preview" width="100%">
+</p>
+
 ## 🔮 CaféPrism 稜咖 (繁體中文)
 
 *稜咖（CaféPrism）* 取閩南語「軟腳」諧音，為爬蟲爬到腳軟的意象，以 AI 分析咖啡資訊，折射為**學術 · 新聞 · 社群**三道光譜，呈現咖啡全貌，而非一種顏色。
 
 ### 功能 Features
 
-- 🔍 **三層爬取**：學術論文（Semantic Scholar）、產業新知（RSS）、社群討論（Reddit）
+- 🔍 **三層爬取與雙重學術引擎**：學術論文（Semantic Scholar + OpenAlex 智慧備援）、產業新知（RSS）、社群討論（Reddit）
+- 🔄 **智慧探索與去重輪換**：預設「智慧探索」模式追蹤全網焦點，採 50/50 核心與動態主題混合策略；支援歷史論文比對防重複與主題自動輪換
 - 🛡️ **防幻覺三重鎖**：來源引用鎖定 + 多來源交叉驗證 + 信心分數標示
 - 🤖 **多元 LLM 支援**：
   - **雲端 API**：Google Gemini、Groq（推薦免費額度）、OpenAI、Anthropic Claude
@@ -41,14 +46,14 @@ npm run dev
 3. **Build settings**:
    - Build command: `npm run build`
    - Output directory: `dist`
-4. **優勢**: 完美支援 `_redirects` 與 Cloudflare Pages Functions 代理，API 功能開箱即用。
+4. **優勢**: 完美支援 Cloudflare Pages Functions (`functions/api-*`) 代理與 `_redirects`，API 與跨域抓取開箱即用。
 
 #### 2. Vercel / Netlify
 - **Build settings**: `npm run build` / `dist`
 - **注意**: 這兩個平台也支援重定向功能（Netlify 支援 `_redirects`）。
 
 #### 3. GitHub Pages（不建議）
-> ⚠️ **限制**: GitHub Pages 不支援 `_redirects` 伺服器端代理。
+> ⚠️ **限制**: GitHub Pages 不支援伺服器端 Functions 與 `_redirects` 代理。
 - 若佈署至此，學術與社群搜尋功能將因 CORS 限制而失效。
 - 需自行修改 `src/lib/api/proxy.js` 以連結外部 Proxy 伺服器。
 
@@ -63,6 +68,10 @@ npm run dev
 - **Groq**（推薦免費方案）：至 [groq.com](https://groq.com) 申請免費 API key
 - **OpenAI / Anthropic**：填入對應平台 API key
 - **本地端（Ollama）**：需先啟動 `ollama serve`，預設位址 `http://localhost:11434`
+
+#### 學術資料來源設定 (Semantic Scholar API Key)
+- **非必填**：未填寫時，系統預設自動透過 OpenAlex 開放學術資料庫進行檢索與無縫備援。
+- **解鎖完整配額**：若頻繁研究想解鎖高頻寬，可至 [Semantic Scholar 官方表單](https://www.semanticscholar.org/product/api#api-key-form) 免費申請官方 API Key 並於設定頁面填入；金鑰同樣受主密碼加密保護並透過專屬 Functions 轉發。
 
 #### 主密碼保護 (Master Password)
 - 可於「設定」中自訂主密碼，將所有 API 金鑰以 AES-GCM (256-bit) 加密存放。
@@ -81,7 +90,7 @@ npm run dev
        ↓
 產業新知（RSS）      ── 品牌動態、市場趨勢、烘焙賽事
        ↓
-學術論文（Semantic Scholar） ── 萃取科學、成分研究、感官評估
+學術論文（Semantic Scholar / OpenAlex） ── 萃取科學、成分研究、感官評估
 ```
 
 CaféPrism 同時爬取三層，交叉比對後才產出摘要，避免單一視角的偏差。
@@ -104,10 +113,10 @@ CaféPrism 同時爬取三層，交叉比對後才產出摘要，避免單一視
 
 ## 技術棧 Tech Stack
 
-- React 18 + Vite（純靜態，無後端）
-- 資料來源：Semantic Scholar API、RSS via allorigins、Reddit JSON API
-- 儲存：localStorage + IndexedDB（歷史記錄）
-- 部署：推薦 Cloudflare Pages (支援 _redirects Proxy)
+- React 18 + Vite（純靜態，無傳統後端）
+- 資料來源：Semantic Scholar API（支援官方 Key）、OpenAlex API（學術備援）、RSS 研磨、Reddit JSON API
+- 儲存：localStorage + IndexedDB（歷史記錄與去重過濾）
+- 部署：推薦 Cloudflare Pages（支援 Cloudflare Pages Functions 代理與 `_redirects`）
 
 ## 名稱由來
 
@@ -126,7 +135,8 @@ CaféPrism 同時爬取三層，交叉比對後才產出摘要，避免單一視
 
 ### Features
 
-- 🔍 **Three-Layer Crawling**: Academic papers (Semantic Scholar), industry news (RSS), and community discussions (Reddit).
+- 🔍 **Three-Layer Crawling & Dual Academic Engine**: Academic papers (Semantic Scholar with OpenAlex smart fallback), industry news (RSS), and community discussions (Reddit).
+- 🔄 **Smart Discovery & Topic Rotation**: Default "Smart Discovery" auto-tracks trending topics with a 50/50 hybrid strategy (core coffee topics + trending discoveries); historical deduplication and dynamic topic rotation.
 - 🛡️ **Triple Anti-Hallucination Lock**: Source citation locking + cross-source verification + confidence score indicators.
 - 🤖 **Comprehensive LLM Support**:
   - **Cloud APIs**: Google Gemini, Groq (recommended free tier), OpenAI, Anthropic Claude.
@@ -154,14 +164,14 @@ npm run dev
 3. **Build settings**:
    - Build command: `npm run build`
    - Output directory: `dist`
-4. **Advantage**: Fully supports `_redirects` and Cloudflare Pages Functions proxies, enabling all APIs out of the box.
+4. **Advantage**: Fully supports Cloudflare Pages Functions (`functions/api-*`) proxies and `_redirects`, enabling all APIs and cross-origin fetching out of the box.
 
 #### 2. Vercel / Netlify
 - **Build settings**: `npm run build` / `dist`
 - **Note**: Both platforms support redirect configurations (Netlify natively supports `_redirects`).
 
 #### 3. GitHub Pages (Not Recommended)
-> ⚠️ **Limitation**: GitHub Pages does not support server-side proxy rules via `_redirects`.
+> ⚠️ **Limitation**: GitHub Pages does not support server-side Functions or `_redirects` proxy rules.
 - Academic and Reddit search features will fail due to browser CORS restrictions.
 - Requires manually configuring an external proxy in `src/lib/api/proxy.js`.
 
@@ -177,6 +187,10 @@ All settings are stored exclusively in your browser's `localStorage`. **Your API
 - **OpenAI / Anthropic**: Enter your platform API key.
 - **Local (Ollama)**: Start `ollama serve` first. Default address: `http://localhost:11434`.
 
+#### Academic Data Source Settings (Semantic Scholar API Key)
+- **Optional**: When left empty, CaféPrism automatically queries the open OpenAlex database for academic papers and rate-limit fallbacks.
+- **Unlock Full Quota**: To unlock higher rate limits, apply for a free official key via the [Semantic Scholar API Form](https://www.semanticscholar.org/product/api#api-key-form) and enter it in Settings (also protected by Master Password and securely forwarded via Edge Functions).
+
 #### Master Password Protection
 - Set a custom master password in "Settings" to encrypt sensitive API keys with AES-GCM (256-bit).
 - In-memory keys are automatically destroyed when the tab is closed. Re-entering requires your password, safeguarding against unauthorized access on shared computers.
@@ -190,11 +204,11 @@ All settings are stored exclusively in your browser's `localStorage`. **Your API
 ### Three Spectra Architecture
 
 ```
-Community Discussions (Reddit)     ── Trending topics, practical tips, user discussions
+Community Discussions (Reddit)             ── Trending topics, practical tips, user discussions
           ↓
-Industry News (RSS)                ── Brand announcements, market trends, roasting events
+Industry News (RSS)                        ── Brand announcements, market trends, roasting events
           ↓
-Academic Papers (Semantic Scholar) ── Extraction physics, sensory evaluation, bean chemistry
+Academic Papers (Semantic Scholar / OpenAlex) ── Extraction physics, sensory evaluation, bean chemistry
 ```
 
 CaféPrism crawls all three spectra simultaneously, performing cross-source verification before generating summaries to avoid single-source bias.
@@ -218,9 +232,9 @@ Source Crawling → Content Hash → LLM Summary (Strictly constrained to crawle
 ### Tech Stack
 
 - React 18 + Vite (Pure static client-side architecture, zero dedicated backend)
-- Data Sources: Semantic Scholar API, RSS via allorigins, Reddit JSON API
-- Storage: localStorage + IndexedDB (History logs)
-- Deployment: Cloudflare Pages (with `_redirects` proxy support)
+- Data Sources: Semantic Scholar API (supports custom API Key), OpenAlex API (academic fallback), RSS feeds, Reddit JSON API
+- Storage: localStorage + IndexedDB (History logs & duplicate paper filtering)
+- Deployment: Cloudflare Pages (with Cloudflare Pages Functions proxies and `_redirects` support)
 
 ### Name Origin
 
