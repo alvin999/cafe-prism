@@ -122,7 +122,7 @@
 
 .prism-sidebar-footer-text {
   font-size: 11px;
-  color: var(--prism-text-dim);
+  color: var(--prism-text-muted);
   line-height: 1.5;
   margin: 0;
 }
