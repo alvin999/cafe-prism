@@ -69,6 +69,18 @@
   height: calc(100vh - 54px);
   background: rgba(13, 13, 11, 0.5);
   box-sizing: border-box;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), padding 0.22s ease;
+}
+
+.prism-sidebar.is-collapsed {
+  width: 68px;
+  padding: 20px 8px;
+}
+
+.prism-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .prism-nav-btn {
@@ -88,6 +100,22 @@
   transition: all var(--prism-transition-fast);
   width: 100%;
   outline: none;
+}
+
+.prism-sidebar.is-collapsed .prism-nav-btn {
+  justify-content: center;
+  padding: 10px 0;
+  position: relative;
+}
+
+.prism-sidebar.is-collapsed .prism-nav-btn-label {
+  display: none;
+}
+
+.prism-sidebar.is-collapsed .prism-unsaved-dot {
+  position: absolute;
+  top: 6px;
+  right: 14px;
 }
 
 .prism-nav-btn:hover {
@@ -114,10 +142,38 @@
   opacity: 1;
 }
 
+/* Header toggle button */
+.prism-sidebar-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--prism-radius-sm, 6px);
+  border: 1px solid var(--prism-border-subtle);
+  background: transparent;
+  color: var(--prism-text-muted);
+  cursor: pointer;
+  transition: all var(--prism-transition-fast);
+  padding: 0;
+  margin-right: 4px;
+}
+
+.prism-sidebar-toggle-btn:hover {
+  color: var(--prism-text-primary);
+  background: var(--prism-bg-glass-hover);
+  border-color: var(--prism-border-focus);
+}
+
+/* Sidebar footer */
 .prism-sidebar-footer {
   margin-top: auto;
-  padding: 14px 8px 4px;
+  padding: 14px 4px 4px;
   border-top: 1px solid var(--prism-border-subtle);
+}
+
+.prism-sidebar.is-collapsed .prism-sidebar-footer {
+  display: none;
 }
 
 .prism-sidebar-footer-text {
@@ -127,13 +183,21 @@
   margin: 0;
 }
 
-/* Main Area */
+/* Main Area - Centered Layout */
 .prism-main {
   flex: 1;
-  padding: 36px 48px;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
   overflow-y: auto;
   box-sizing: border-box;
+}
+
+.prism-content-container {
+  width: 100%;
   max-width: 1200px;
+  padding: 36px 48px;
+  box-sizing: border-box;
 }
 
 /* Page Typography */
@@ -173,11 +237,25 @@
     overflow-x: auto;
   }
 
-  .prism-sidebar-footer {
+  .prism-sidebar-footer,
+  .prism-sidebar-toggle-btn {
     display: none;
   }
 
+  .prism-sidebar.is-collapsed {
+    width: 100%;
+    padding: 8px 12px;
+  }
+
+  .prism-sidebar.is-collapsed .prism-nav-btn-label {
+    display: inline;
+  }
+
   .prism-main {
+    padding: 0;
+  }
+
+  .prism-content-container {
     padding: 20px 16px;
   }
 }

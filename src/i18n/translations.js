@@ -7,6 +7,8 @@ export const translations = {
       settings: 'Settings',
       schedule: 'Schedule',
       history: 'History',
+      collapseSidebar: 'Collapse sidebar',
+      expandSidebar: 'Expand sidebar',
     },
     app: {
       catchingUp: 'Catching up…',
@@ -242,6 +244,8 @@ export const translations = {
       settings: '設定',
       schedule: '排程',
       history: '歷史',
+      collapseSidebar: '收折側邊欄',
+      expandSidebar: '展開側邊欄',
     },
     app: {
       catchingUp: '背景補跑中…',

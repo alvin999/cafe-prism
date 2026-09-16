@@ -56,8 +56,20 @@ export default function App() {
   const [hasUnsavedSettings, setHasUnsavedSettings] = useState(false);
   const [pendingPage, setPendingPage] = useState(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('cafe_prism_sidebar_collapsed') === 'true';
+  });
   const saveSettingsRef = useRef(null);
   const discardSettingsRef = useRef(null);
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('cafe_prism_sidebar_collapsed', String(next));
+      return next;
+    });
+  };
 
   const t = translations[lang];
 
@@ -131,6 +143,18 @@ export default function App() {
         {/* Top bar */}
         <header className="prism-header">
           <div className="prism-header-brand">
+            <button
+              type="button"
+              className="prism-sidebar-toggle-btn"
+              onClick={toggleSidebar}
+              title={isSidebarCollapsed ? t.nav.expandSidebar : t.nav.collapseSidebar}
+              aria-label={isSidebarCollapsed ? t.nav.expandSidebar : t.nav.collapseSidebar}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="1.5" y="2" width="13" height="12" rx="2" />
+                <path d="M5.5 2v12" />
+              </svg>
+            </button>
             <span style={{ fontSize: '20px' }}>🔮</span>
             <span className="prism-header-title">CaféPrism</span>
             <span className="prism-header-badge">Beta</span>
@@ -153,46 +177,53 @@ export default function App() {
 
         <div className="prism-body">
           {/* Sidebar */}
-          <nav className="prism-sidebar">
-            {Object.keys(pages).map(key => (
-              <button
-                key={key}
-                data-nav={key}
-                onClick={() => handleNavClick(key)}
-                className={`prism-nav-btn ${page === key ? 'is-active' : ''}`}
-              >
-                <span className="prism-nav-btn-icon">{NAV_ICONS[key]}</span>
-                {t.nav[key]}
-                {key === 'settings' && hasUnsavedSettings && (
-                  <span className="prism-unsaved-dot" style={{ marginLeft: 'auto' }} title={t.settings.unsavedChangesBar} />
-                )}
-              </button>
-            ))}
-
-            <div className="prism-sidebar-footer">
-              <p className="prism-sidebar-footer-text" style={{ whiteSpace: 'pre-line' }}>
-                {t.app.securityBadge}
-              </p>
+          <nav className={`prism-sidebar ${isSidebarCollapsed ? 'is-collapsed' : ''}`}>
+            <div className="prism-sidebar-nav">
+              {Object.keys(pages).map(key => (
+                <button
+                  key={key}
+                  data-nav={key}
+                  onClick={() => handleNavClick(key)}
+                  className={`prism-nav-btn ${page === key ? 'is-active' : ''}`}
+                  title={isSidebarCollapsed ? t.nav[key] : undefined}
+                >
+                  <span className="prism-nav-btn-icon">{NAV_ICONS[key]}</span>
+                  <span className="prism-nav-btn-label">{t.nav[key]}</span>
+                  {key === 'settings' && hasUnsavedSettings && (
+                    <span className="prism-unsaved-dot" style={{ marginLeft: isSidebarCollapsed ? 0 : 'auto' }} title={t.settings.unsavedChangesBar} />
+                  )}
+                </button>
+              ))}
             </div>
+
+            {!isSidebarCollapsed && (
+              <div className="prism-sidebar-footer">
+                <p className="prism-sidebar-footer-text" style={{ whiteSpace: 'pre-line' }}>
+                  {t.app.securityBadge}
+                </p>
+              </div>
+            )}
           </nav>
 
           {/* Main content */}
           <main className="prism-main">
-            <ErrorBoundary>
-              <Suspense fallback={
-                <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--prism-text-dim)' }}>
-                  <span className="animate-spin" style={{ display: 'inline-block', fontSize: '24px', marginBottom: '12px' }}>⟳</span>
-                  <p style={{ fontSize: '13px', margin: 0 }}>載入中…</p>
-                </div>
-              }>
-                <PageComponent
-                  onDirtyChange={setHasUnsavedSettings}
-                  saveRef={saveSettingsRef}
-                  discardRef={discardSettingsRef}
-                  onNavigate={handleNavClick}
-                />
-              </Suspense>
-            </ErrorBoundary>
+            <div className="prism-content-container">
+              <ErrorBoundary>
+                <Suspense fallback={
+                  <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--prism-text-dim)' }}>
+                    <span className="animate-spin" style={{ display: 'inline-block', fontSize: '24px', marginBottom: '12px' }}>⟳</span>
+                    <p style={{ fontSize: '13px', margin: 0 }}>載入中…</p>
+                  </div>
+                }>
+                  <PageComponent
+                    onDirtyChange={setHasUnsavedSettings}
+                    saveRef={saveSettingsRef}
+                    discardRef={discardSettingsRef}
+                    onNavigate={handleNavClick}
+                  />
+                </Suspense>
+              </ErrorBoundary>
+            </div>
           </main>
         </div>
 
