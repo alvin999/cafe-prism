@@ -208,4 +208,40 @@ export const Storage = {
     try { return JSON.parse(localStorage.getItem('cr_schedule_meta') || '{}'); } catch { return {}; }
   },
   saveScheduleMeta: (meta) => localStorage.setItem('cr_schedule_meta', JSON.stringify(meta)),
+
+  exportBackup: () => {
+    const rawSettings = Storage.getRawSettings();
+    const schedule = Storage.getSchedule();
+    const backup = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      appName: 'CafePrism',
+      settings: rawSettings,
+      schedule,
+    };
+    return JSON.stringify(backup, null, 2);
+  },
+
+  importBackup: (jsonString) => {
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonString);
+    } catch {
+      throw new Error('INVALID_JSON');
+    }
+    if (!parsed || typeof parsed !== 'object' || (parsed.appName !== 'CafePrism' && !parsed.settings)) {
+      throw new Error('INVALID_BACKUP_FORMAT');
+    }
+    if (parsed.settings && typeof parsed.settings === 'object') {
+      localStorage.setItem('cr_settings', JSON.stringify(parsed.settings));
+    }
+    if (parsed.schedule && typeof parsed.schedule === 'object') {
+      localStorage.setItem('cr_schedule', JSON.stringify(parsed.schedule));
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('cr:settings-updated'));
+      window.dispatchEvent(new Event('cr:schedule-updated'));
+    }
+    return true;
+  },
 };

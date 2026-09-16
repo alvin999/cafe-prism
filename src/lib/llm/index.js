@@ -66,9 +66,13 @@ export function parseAIGeneratedJSON(text) {
 // ─── LLM caller ─────────────────────────────────────────────────────────────
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function callLLM(settings, prompt, retries = 2) {
+export async function callLLM(settings, prompt, retries = 2, signal = null) {
   const { provider, model } = settings;
   const apiKey = (settings.apiKeys && settings.apiKeys[provider]) || settings.apiKey;
+
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
 
   const attemptFetch = async () => {
     if (settings.modelType === 'local') {
@@ -76,6 +80,7 @@ export async function callLLM(settings, prompt, retries = 2) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: settings.ollamaModel, prompt, stream: false }),
+        signal,
       });
       if (!r.ok) throw new Error(`Ollama request failed: ${r.status}`);
       const d = await r.json();
@@ -90,6 +95,7 @@ export async function callLLM(settings, prompt, retries = 2) {
           model: model || 'gpt-4o-mini',
           messages: [{ role: 'user', content: prompt }],
         }),
+        signal,
       });
       if (!r.ok) throw new Error(`OpenAI error: ${await r.text()}`);
       const d = await r.json();
@@ -110,6 +116,7 @@ export async function callLLM(settings, prompt, retries = 2) {
           max_tokens: 1500,
           messages: [{ role: 'user', content: prompt }],
         }),
+        signal,
       });
       if (!r.ok) throw new Error(`Anthropic error: ${await r.text()}`);
       const d = await r.json();
@@ -126,6 +133,7 @@ export async function callLLM(settings, prompt, retries = 2) {
           // Removing max_tokens prevents Groq from over-reserving the TPM bucket
           // which immediately hits the 6000 TPM free tier limit.
         }),
+        signal,
       });
       if (!r.ok) {
         const errText = await r.text();
@@ -145,6 +153,7 @@ export async function callLLM(settings, prompt, retries = 2) {
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
         }),
+        signal,
       });
       if (!r.ok) {
         const errText = await r.text();
@@ -161,11 +170,14 @@ export async function callLLM(settings, prompt, retries = 2) {
   try {
     return await attemptFetch();
   } catch (err) {
+    if (signal?.aborted || err.name === 'AbortError') {
+      throw err;
+    }
     if (err.message === 'RATE_LIMIT' && retries > 0) {
       const waitTime = (3 - retries) * 6000; // 第一次失敗等 6 秒，第二次等 12 秒
       console.warn(`Rate limit hit, waiting ${waitTime / 1000} seconds before retry...`);
       await delay(waitTime);
-      return callLLM(settings, prompt, retries - 1);
+      return callLLM(settings, prompt, retries - 1, signal);
     }
     throw err;
   }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useLang } from '../App.jsx';
 import { Storage } from '../lib/engine.js';
+import { safeUrl } from '../lib/utils/sanitize.js';
 
 export default function History() {
   const { t, lang } = useLang();
@@ -143,7 +144,7 @@ export default function History() {
                   </p>
                   {card.articles?.[0]?.link && (
                     <a
-                      href={card.articles[0].link}
+                      href={safeUrl(card.articles[0].link)}
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{

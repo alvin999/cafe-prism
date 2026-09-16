@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { runResearchPipeline, sendTelegram, formatTelegramMessage, Storage } from '../lib/engine.js';
 
 export function useDashboard(lang, t = null) {
@@ -12,6 +12,8 @@ export function useDashboard(lang, t = null) {
   const [sentTelegram, setSentTelegram] = useState(false);
   const [noModelMode, setNoModelMode] = useState(null); // null, 'no_config', 'conn_error'
 
+  const abortControllerRef = useRef(null);
+
   // 密碼解鎖流程狀態
   const [needUnlock, setNeedUnlock] = useState(false);
   const [pendingAction, setPendingAction] = useState(null); // 'run' | 'push' | null
@@ -24,7 +26,22 @@ export function useDashboard(lang, t = null) {
       setSourceStatus(h[0].sourceStatus || null);
       setLastRun(new Date(h[0].date).toLocaleString());
     }
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
+
+  const cancelRun = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setRunning(false);
+      setProgress(0);
+      setProgressMsg('');
+    }
+  };
 
   const run = async () => {
     const raw = Storage.getRawSettings();
@@ -39,6 +56,12 @@ export function useDashboard(lang, t = null) {
 
     const settings = Storage.getSettings();
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setRunning(true);
     setError('');
     setSentTelegram(false);
@@ -47,7 +70,8 @@ export function useDashboard(lang, t = null) {
     try {
       const result = await runResearchPipeline(
         { ...settings, language: lang },
-        (msg, pct) => { setProgressMsg(msg); setProgress(pct); }
+        (msg, pct) => { setProgressMsg(msg); setProgress(pct); },
+        controller.signal
       );
       setCards(result);
       const status = result.sourceStatus || null;
@@ -72,11 +96,16 @@ export function useDashboard(lang, t = null) {
         setSentTelegram(true);
       }
     } catch (e) {
+      if (e.name === 'AbortError') {
+        console.log('[Dashboard] Research run cancelled by user.');
+        return;
+      }
       if (e.sourceStatus) {
         setSourceStatus(e.sourceStatus);
       }
       setError(e.message || 'Unknown error');
     } finally {
+      abortControllerRef.current = null;
       setRunning(false);
       setProgress(0);
     }
@@ -138,6 +167,7 @@ export function useDashboard(lang, t = null) {
     handleUnlockSuccess,
     handleCancelUnlock,
     run,
+    cancelRun,
     handleManualPush,
   };
 }

@@ -16,6 +16,14 @@ export async function sendTelegram(botToken, chatId, text) {
   return d;
 }
 
+// Helper: Escape HTML special characters to avoid Telegram 400 bad request error
+export function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 export function formatTelegramMessage(cards, language) {
   const isZh = language === 'zh';
   const header = isZh
@@ -24,10 +32,14 @@ export function formatTelegramMessage(cards, language) {
 
   const body = cards.slice(0, 3).map((card, i) => {
     const badge = card.confidence === 'high' ? '🟢' : card.confidence === 'medium' ? '🟡' : '🔴';
-    const title = card.primaryTitle.slice(0, 80);
-    const summary = card.summary.replace(/<[^>]+>/g, '').slice(0, 300);
-    const sourceLink = card.articles[0]?.link || '';
-    return `${badge} <b>${i + 1}. ${title}</b>\n${summary}...\n<a href="${sourceLink}">${isZh ? '查看原文' : 'Read source'}</a>`;
+    const rawTitle = card.primaryTitle || card.subject || (isZh ? '未命名研究' : 'Untitled Research');
+    const title = escapeHtml(rawTitle.slice(0, 80));
+    const cleanSummary = (card.summary || '').replace(/<[^>]+>/g, '').slice(0, 300);
+    const summary = escapeHtml(cleanSummary);
+    const rawLink = card.articles?.[0]?.link || '';
+    const safeLink = (/^https?:\/\//i.test(rawLink) ? rawLink : '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    const linkTag = safeLink ? `<a href="${safeLink}">${isZh ? '查看原文' : 'Read source'}</a>` : '';
+    return `${badge} <b>${i + 1}. ${title}</b>\n${summary}...\n${linkTag}`;
   }).join('\n\n─────────────\n\n');
 
   const footer = isZh

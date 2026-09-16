@@ -21,6 +21,7 @@ export default function Dashboard({ onNavigate }) {
     handleUnlockSuccess,
     handleCancelUnlock,
     run,
+    cancelRun,
     handleManualPush
   } = useDashboard(lang, t);
 
@@ -51,6 +52,16 @@ export default function Dashboard({ onNavigate }) {
               <>{t.dashboard.runNow}</>
             )}
           </button>
+
+          {running && (
+            <button
+              onClick={cancelRun}
+              className="prism-btn prism-btn-danger"
+              style={{ padding: '9px 16px' }}
+            >
+              ✕ {t.dashboard.cancel || '取消'}
+            </button>
+          )}
 
           {cards.length > 0 && !running && (
             <button

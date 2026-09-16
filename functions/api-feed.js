@@ -33,6 +33,71 @@ export async function onRequest(context) {
     );
   }
 
+  // SSRF 防護與 URL 合法性校驗
+  let parsedTarget;
+  try {
+    parsedTarget = new URL(targetUrl);
+  } catch {
+    return new Response(
+      JSON.stringify({ error: 'Invalid URL format' }),
+      {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+
+  // 僅允許 http 與 https 協議
+  if (parsedTarget.protocol !== 'http:' && parsedTarget.protocol !== 'https:') {
+    return new Response(
+      JSON.stringify({ error: 'Disallowed protocol. Only http: and https: are permitted.' }),
+      {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+
+  // 阻斷本地迴圈與私有 IP 網段
+  const hostname = parsedTarget.hostname.toLowerCase();
+  const isPrivateIp = (host) => {
+    if (host === 'localhost' || host === '0.0.0.0' || host === '::1' || host === '[::1]') return true;
+    // 檢查 IPv4 內網網段
+    const parts = host.split('.');
+    if (parts.length === 4 && parts.every(p => /^\d+$/.test(p) && Number(p) >= 0 && Number(p) <= 255)) {
+      const b0 = Number(parts[0]);
+      const b1 = Number(parts[1]);
+      if (b0 === 127) return true; // 127.0.0.0/8
+      if (b0 === 10) return true;  // 10.0.0.0/8
+      if (b0 === 172 && b1 >= 16 && b1 <= 31) return true; // 172.16.0.0/12
+      if (b0 === 192 && b1 === 168) return true; // 192.168.0.0/16
+      if (b0 === 169 && b1 === 254) return true; // 169.254.0.0/16 (Link-local / Cloud metadata)
+      if (b0 === 0) return true;
+    }
+    // 檢查 IPv6 私有位址
+    if (host.startsWith('[fc') || host.startsWith('[fd') || host.startsWith('[fe80')) return true;
+    return false;
+  };
+
+  if (isPrivateIp(hostname)) {
+    return new Response(
+      JSON.stringify({ error: 'Access to private or local network hosts is restricted.' }),
+      {
+        status: 403,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*',
+        },
+      }
+    );
+  }
+
   try {
     const resp = await fetch(targetUrl, {
       headers: {

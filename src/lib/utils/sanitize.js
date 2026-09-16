@@ -49,3 +49,18 @@ export function sanitizeHtmlText(rawText) {
  * stripHtml 語意別名，與 sanitizeHtmlText 等價
  */
 export const stripHtml = sanitizeHtmlText;
+
+/**
+ * 檢查並回傳安全的 HTTP/HTTPS 網址，防範 javascript: 偽協議點擊 XSS 攻擊
+ * @param {string} url 待驗證網址
+ * @param {string} fallback 若不合法時的備援回傳值，預設為 '#'
+ * @returns {string} 安全網址
+ */
+export function safeUrl(url, fallback = '#') {
+  if (!url || typeof url !== 'string') return fallback;
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return fallback;
+}

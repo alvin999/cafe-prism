@@ -34,13 +34,34 @@ export function getSeenHistoryKeys(history = []) {
   return seen;
 }
 
+// ─── Concurrent Map Helper ───────────────────────────────────────────────────
+async function mapConcurrent(items, limit, workerFn) {
+  const results = new Array(items.length);
+  let currentIndex = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (currentIndex < items.length) {
+      const idx = currentIndex++;
+      results[idx] = await workerFn(items[idx], idx);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 // ─── Main pipeline ────────────────────────────────────────────────────────────
-export async function runResearchPipeline(settings, onProgress) {
+export async function runResearchPipeline(settings, onProgress, signal = null) {
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError');
+  }
+
   const isDiscovery = settings.discoveryMode !== false;
   const keywords = (settings.keywords || '')
     .split(',').map(k => k.trim()).filter(Boolean);
 
-  onProgress('Crawling coffee world…', 10);
+  const lang = settings.language || 'en';
+  const isZh = lang === 'zh';
+
+  onProgress(isZh ? '正在探索全網咖啡研究與最新動態…' : 'Crawling coffee world…', 10);
   const allArticles = [];
 
   // Parallel fetch for speed with named tasks for observability
@@ -197,10 +218,7 @@ export async function runResearchPipeline(settings, onProgress) {
     }
   }
 
-  onProgress('Generating grounded summaries…', 65);
-
-  const cards = [];
-  const lang = settings.language || 'en';
+  onProgress(isZh ? '正在規劃研究主題並進行光譜聚焦…' : 'Organising by hotness & diversity…', 50);
 
   // ─── Determine if a valid model is configured ────────────────────────────
   const hasModel =
@@ -210,7 +228,14 @@ export async function runResearchPipeline(settings, onProgress) {
         ? !!(settings.provider && ((settings.apiKeys && settings.apiKeys[settings.provider]) || settings.apiKey))
         : false;
 
-  for (const item of selected) {
+  let completedCount = 0;
+  const concurrencyLimit = 2; // 兼顧效能與 Rate Limit，避免觸發 429
+
+  const cards = await mapConcurrent(selected, concurrencyLimit, async (item) => {
+    if (signal?.aborted) {
+      throw new DOMException('Aborted', 'AbortError');
+    }
+
     const cluster = item.cluster;
 
     // Helper to create a fallback card
@@ -245,14 +270,18 @@ export async function runResearchPipeline(settings, onProgress) {
 
     // ─── No-Model Fallback: skip LLM ─────────────────────────────────────
     if (!hasModel) {
-      cards.push(await createFallbackCard());
-      continue;
+      const card = await createFallbackCard();
+      completedCount++;
+      const pct = 50 + Math.round((completedCount / selected.length) * 45);
+      onProgress(isZh ? `已整理主題卡片 (${completedCount}/${selected.length})` : `Processed card (${completedCount}/${selected.length})`, pct);
+      return card;
     }
 
     // ─── Normal LLM path ─────────────────────────────────────────────────
+    let card;
     try {
       const prompt = await buildGroundedSummaryPrompt(cluster, lang);
-      const rawResponse = await callLLM(settings, prompt);
+      const rawResponse = await callLLM(settings, prompt, 2, signal);
 
       const { data, repaired, incomplete } = parseAIGeneratedJSON(rawResponse);
       
@@ -262,10 +291,9 @@ export async function runResearchPipeline(settings, onProgress) {
       const crossVerified = item.sources.size >= 2;
 
       const uncertainSentences = data.summary.split(/[.!?]/).filter(s => s.includes('⚠')).length;
-
       const actualModel = settings.modelType === 'local' ? settings.ollamaModel : (settings.model || 'default-standard');
 
-      cards.push({
+      card = {
         id: contentHash,
         summary: data.summary,
         fun_fact: data.fun_fact || '',
@@ -292,15 +320,28 @@ export async function runResearchPipeline(settings, onProgress) {
           rawResponse,
           model: actualModel,
         }
-      });
-    } catch (e) { 
+      };
+    } catch (e) {
+      if (signal?.aborted || e.name === 'AbortError') {
+        throw e;
+      }
       console.warn('LLM failed, falling back to raw title:', e);
-      // Even if AI fails, we show the raw title so the user gets something
-      cards.push(await createFallbackCard(e.message));
+      card = await createFallbackCard(e.message);
     }
-  }
 
-  onProgress('Done', 100);
+    completedCount++;
+    const shortTitle = (card.primaryTitle || cluster[0]?.title || '').slice(0, 24);
+    const pct = 50 + Math.round((completedCount / selected.length) * 45);
+    onProgress(
+      isZh
+        ? `正在萃取研究觀點 (${completedCount}/${selected.length})：${shortTitle}...`
+        : `Analyzing research (${completedCount}/${selected.length}): ${shortTitle}...`,
+      pct
+    );
+    return card;
+  });
+
+  onProgress(isZh ? '研究分析完成' : 'Done', 100);
   cards.sourceStatus = sourceStatus;
   return cards;
 }

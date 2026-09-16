@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import ConfidenceBadge from './ConfidenceBadge.jsx';
 import SourceChip from './SourceChip.jsx';
-import { sanitizeHtmlText } from '../../lib/utils/sanitize.js';
+import { sanitizeHtmlText, safeUrl } from '../../lib/utils/sanitize.js';
 
 export default function ResearchCard({ card, t, lang }) {
   const [expanded, setExpanded] = useState(false);
@@ -250,7 +250,7 @@ export default function ResearchCard({ card, t, lang }) {
                   </p>
                 )}
                 <a
-                  href={a.link}
+                  href={safeUrl(a.link)}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLang } from '../App.jsx';
 import { Storage, sendTelegram, fetchOllamaModels, fetchProviderModels } from '../lib/engine.js';
 import UnlockModal from '../components/UnlockModal.jsx';
@@ -232,6 +232,8 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
   const [saved, setSaved] = useState(false);
   const [testMsg, setTestMsg] = useState('');
   const [testing, setTesting] = useState(false);
+  const [backupMsg, setBackupMsg] = useState('');
+  const fileInputRef = useRef(null);
   const [ollamaModels, setOllamaModels] = useState([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [cloudModels, setCloudModels] = useState([]);
@@ -914,6 +916,84 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
             marginTop: '10px', fontSize: '12.5px',
             color: testMsg.startsWith('✓') ? 'var(--prism-success)' : 'var(--prism-danger)',
           }}>{testMsg}</p>
+        )}
+      </Section>
+
+      {/* Backup & Restore */}
+      <Section title={t.settings.backupSection || '設定備份與還原'}>
+        <p style={{ fontSize: '13px', color: 'var(--prism-text-muted)', marginBottom: '16px', lineHeight: 1.6 }}>
+          {t.settings.backupHint}
+        </p>
+
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="prism-btn prism-btn-ghost"
+            onClick={() => {
+              try {
+                const json = Storage.exportBackup();
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const dateStr = new Date().toISOString().slice(0, 10);
+                a.href = url;
+                a.download = `cafe-prism-settings-${dateStr}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                setBackupMsg(t.settings.savedSuccess || '✓ Exported!');
+                setTimeout(() => setBackupMsg(''), 3500);
+              } catch (err) {
+                setBackupMsg(`Error: ${err.message}`);
+              }
+            }}
+          >
+            📥 {t.settings.exportBackupBtn}
+          </button>
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            accept=".json"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              const reader = new FileReader();
+              reader.onload = (evt) => {
+                try {
+                  const text = evt.target?.result;
+                  Storage.importBackup(text);
+                  syncSettings();
+                  setBackupMsg(t.settings.importSuccess || '✓ Restored!');
+                  setTimeout(() => setBackupMsg(''), 3500);
+                } catch (err) {
+                  setBackupMsg(t.settings.importFailed || 'Import failed');
+                }
+              };
+              reader.readAsText(file);
+              e.target.value = '';
+            }}
+          />
+
+          <button
+            type="button"
+            className="prism-btn prism-btn-ghost"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            📤 {t.settings.importBackupBtn}
+          </button>
+        </div>
+
+        {backupMsg && (
+          <p style={{
+            marginTop: '12px',
+            fontSize: '12.5px',
+            color: backupMsg.startsWith('✓') ? 'var(--prism-success)' : 'var(--prism-danger)',
+          }}>
+            {backupMsg}
+          </p>
         )}
       </Section>
 

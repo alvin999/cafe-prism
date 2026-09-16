@@ -1,12 +1,14 @@
-import { useState, createContext, useContext, useEffect, useRef } from 'react';
+import { useState, createContext, useContext, useEffect, useRef, lazy, Suspense } from 'react';
 import { translations } from './i18n/translations.js';
 import { Storage } from './lib/engine.js';
 import { useGlobalScheduler } from './hooks/useGlobalScheduler.js';
 import Dashboard from './pages/Dashboard.jsx';
-import Settings from './pages/Settings.jsx';
-import Schedule from './pages/Schedule.jsx';
-import History from './pages/History.jsx';
 import UnsavedModal from './components/UnsavedModal.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+
+const Settings = lazy(() => import('./pages/Settings.jsx'));
+const Schedule = lazy(() => import('./pages/Schedule.jsx'));
+const History = lazy(() => import('./pages/History.jsx'));
 
 export const LangContext = createContext({ lang: 'zh', t: translations.zh, setLang: () => { } });
 export const useLang = () => useContext(LangContext);
@@ -42,9 +44,15 @@ const NAV_ICONS = {
   ),
 };
 
+const getPageFromHash = () => {
+  if (typeof window === 'undefined') return 'dashboard';
+  const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+  return ['dashboard', 'settings', 'schedule', 'history'].includes(h) ? h : 'dashboard';
+};
+
 export default function App() {
   const [lang, setLang] = useState(() => Storage.getSettings().language || 'zh');
-  const [page, setPage] = useState('dashboard');
+  const [page, setPage] = useState(getPageFromHash);
   const [hasUnsavedSettings, setHasUnsavedSettings] = useState(false);
   const [pendingPage, setPendingPage] = useState(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
@@ -61,8 +69,25 @@ export default function App() {
     Storage.saveSettings({ ...s, language: lang });
   }, [lang]);
 
+  // Hash 路由監聽
+  useEffect(() => {
+    const handleHashChange = () => {
+      const target = getPageFromHash();
+      setPage(target);
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
   const pages = { dashboard: Dashboard, settings: Settings, schedule: Schedule, history: History };
-  const PageComponent = pages[page];
+  const PageComponent = pages[page] || Dashboard;
+
+  const navigateTo = (targetKey) => {
+    setPage(targetKey);
+    if (typeof window !== 'undefined' && window.location.hash !== `#${targetKey}`) {
+      window.location.hash = targetKey;
+    }
+  };
 
   const handleNavClick = (targetKey) => {
     if (page === targetKey) return;
@@ -70,7 +95,7 @@ export default function App() {
       setPendingPage(targetKey);
       setShowUnsavedModal(true);
     } else {
-      setPage(targetKey);
+      navigateTo(targetKey);
     }
   };
 
@@ -83,7 +108,7 @@ export default function App() {
     setShowUnsavedModal(false);
     setHasUnsavedSettings(false);
     if (pendingPage) {
-      setPage(pendingPage);
+      navigateTo(pendingPage);
       setPendingPage(null);
     }
   };
@@ -95,7 +120,7 @@ export default function App() {
     setShowUnsavedModal(false);
     setHasUnsavedSettings(false);
     if (pendingPage) {
-      setPage(pendingPage);
+      navigateTo(pendingPage);
       setPendingPage(null);
     }
   };
@@ -153,12 +178,21 @@ export default function App() {
 
           {/* Main content */}
           <main className="prism-main">
-            <PageComponent
-              onDirtyChange={setHasUnsavedSettings}
-              saveRef={saveSettingsRef}
-              discardRef={discardSettingsRef}
-              onNavigate={handleNavClick}
-            />
+            <ErrorBoundary>
+              <Suspense fallback={
+                <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--prism-text-dim)' }}>
+                  <span className="animate-spin" style={{ display: 'inline-block', fontSize: '24px', marginBottom: '12px' }}>⟳</span>
+                  <p style={{ fontSize: '13px', margin: 0 }}>載入中…</p>
+                </div>
+              }>
+                <PageComponent
+                  onDirtyChange={setHasUnsavedSettings}
+                  saveRef={saveSettingsRef}
+                  discardRef={discardSettingsRef}
+                  onNavigate={handleNavClick}
+                />
+              </Suspense>
+            </ErrorBoundary>
           </main>
         </div>
 

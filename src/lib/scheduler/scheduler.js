@@ -50,6 +50,8 @@ export function getPreviousScheduledRunTime(hour = 8, frequency = 'daily', dayOf
   return target;
 }
 
+const MAX_CATCH_UP_AGE_MS = 48 * 3600 * 1000; // 最多只補跑過去 48 小時內的排程
+
 /**
  * 檢查是否錯過排程並需要補跑 (Catch-up)
  */
@@ -66,6 +68,12 @@ export function checkMissedRun(scheduleConfig, meta, now = new Date()) {
   );
 
   const lastRunTimestamp = meta?.lastRunTimestamp || 0;
+  const timeSinceTarget = now.getTime() - lastTarget.getTime();
+
+  // 若距離該排程時間已超過 48 小時，視為休眠重啟，避免無預警自動補跑消耗大量 Token
+  if (timeSinceTarget > MAX_CATCH_UP_AGE_MS) {
+    return { shouldCatchUp: false, expired: true, scheduledTime: lastTarget };
+  }
 
   // 若最近應執行的排程點大於上次成功執行時間，且當前時間已過該排程點
   if (lastRunTimestamp < lastTarget.getTime() && now.getTime() >= lastTarget.getTime()) {
@@ -79,14 +87,9 @@ export function checkMissedRun(scheduleConfig, meta, now = new Date()) {
 }
 
 /**
- * 執行排程研究任務（支援定時觸發與延遲補跑）
+ * 內部排程執行核心
  */
-export async function executeScheduledTask(isCatchUp = false) {
-  if (isExecuting) {
-    console.warn('[Scheduler] Task is already running. Skipping duplicate execution.');
-    return { success: false, reason: 'already_running' };
-  }
-
+async function runTaskInternal(isCatchUp) {
   const sched = Storage.getSchedule();
   if (!sched || !sched.enabled) {
     return { success: false, reason: 'schedule_disabled' };
@@ -155,4 +158,32 @@ export async function executeScheduledTask(isCatchUp = false) {
       }));
     }
   }
+}
+
+/**
+ * 執行排程研究任務（支援 Web Locks API 跨分頁互斥防衝突）
+ */
+export async function executeScheduledTask(isCatchUp = false) {
+  if (isExecuting) {
+    console.warn('[Scheduler] Task is already running in current tab. Skipping duplicate execution.');
+    return { success: false, reason: 'already_running' };
+  }
+
+  // 1. 若瀏覽器支援 Web Locks API，採用原生互斥鎖（防止多分頁重複觸發）
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return await navigator.locks.request(
+      'cafe_prism_scheduler_lock',
+      { ifAvailable: true },
+      async (lock) => {
+        if (!lock) {
+          console.warn('[Scheduler] Another browser tab holds the scheduler lock. Skipping execution in this tab.');
+          return { success: false, reason: 'lock_held_by_another_tab' };
+        }
+        return await runTaskInternal(isCatchUp);
+      }
+    );
+  }
+
+  // 2. 備援方案：在單一分頁環境下直接執行
+  return await runTaskInternal(isCatchUp);
 }
