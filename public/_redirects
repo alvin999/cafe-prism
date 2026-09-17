@@ -6,3 +6,6 @@
 /api-news/* https://news.google.com/:splat 200
 /api-sprudge/* https://sprudge.com/:splat 200
 /api-allorigins/* https://api.allorigins.win/:splat 200
+
+# SPA Fallback: 支援 HTML5 History API 路由與單頁應用程式重整
+/*    /index.html   200

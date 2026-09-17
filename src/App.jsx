@@ -44,15 +44,26 @@ const NAV_ICONS = {
   ),
 };
 
-const getPageFromHash = () => {
+const VALID_PAGES = ['dashboard', 'settings', 'schedule', 'history'];
+
+const getPageFromUrl = () => {
   if (typeof window === 'undefined') return 'dashboard';
-  const h = window.location.hash.replace(/^#\/?/, '').toLowerCase();
-  return ['dashboard', 'settings', 'schedule', 'history'].includes(h) ? h : 'dashboard';
+  // 1. 優先相容舊版 Hash (例如 #settings, #dashboard)
+  const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
+  if (VALID_PAGES.includes(hash)) {
+    return hash;
+  }
+  // 2. 檢查 HTML5 pathname (例如 /settings, /schedule, /history, /dashboard)
+  const path = window.location.pathname.replace(/^\/|\/$/g, '').toLowerCase();
+  if (VALID_PAGES.includes(path)) {
+    return path;
+  }
+  return 'dashboard';
 };
 
 export default function App() {
   const [lang, setLang] = useState(() => Storage.getSettings().language || 'zh');
-  const [page, setPage] = useState(getPageFromHash);
+  const [page, setPage] = useState(getPageFromUrl);
   const [hasUnsavedSettings, setHasUnsavedSettings] = useState(false);
   const [pendingPage, setPendingPage] = useState(null);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
@@ -81,14 +92,31 @@ export default function App() {
     Storage.saveSettings({ ...s, language: lang });
   }, [lang]);
 
-  // Hash 路由監聽
+  // 初始化與舊版 Hash 向下相容規格化
   useEffect(() => {
-    const handleHashChange = () => {
-      const target = getPageFromHash();
+    const currentTarget = getPageFromUrl();
+    const targetPath = currentTarget === 'dashboard' ? '/' : `/${currentTarget}`;
+    if (window.location.hash || window.location.pathname !== targetPath) {
+      window.history.replaceState({ page: currentTarget }, '', targetPath);
+    }
+  }, []);
+
+  // HTML5 History 路由監聽 (popstate 與相容 hashchange)
+  useEffect(() => {
+    const handleLocationChange = () => {
+      const target = getPageFromUrl();
       setPage(target);
+      const targetPath = target === 'dashboard' ? '/' : `/${target}`;
+      if (window.location.hash) {
+        window.history.replaceState({ page: target }, '', targetPath);
+      }
     };
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
   }, []);
 
   const pages = { dashboard: Dashboard, settings: Settings, schedule: Schedule, history: History };
@@ -96,8 +124,11 @@ export default function App() {
 
   const navigateTo = (targetKey) => {
     setPage(targetKey);
-    if (typeof window !== 'undefined' && window.location.hash !== `#${targetKey}`) {
-      window.location.hash = targetKey;
+    if (typeof window !== 'undefined') {
+      const targetPath = targetKey === 'dashboard' ? '/' : `/${targetKey}`;
+      if (window.location.pathname !== targetPath || window.location.hash) {
+        window.history.pushState({ page: targetKey }, '', targetPath);
+      }
     }
   };
 
@@ -155,9 +186,15 @@ export default function App() {
                 <path d="M5.5 2v12" />
               </svg>
             </button>
-            <span style={{ fontSize: '20px' }}>🔮</span>
-            <span className="prism-header-title">CaféPrism</span>
-            <span className="prism-header-badge">Beta</span>
+            <div
+              onClick={() => handleNavClick('dashboard')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+              title={t.nav.dashboard}
+            >
+              <span style={{ fontSize: '20px' }}>🔮</span>
+              <span className="prism-header-title">CaféPrism</span>
+              <span className="prism-header-badge">Beta</span>
+            </div>
             {schedulerStatus.running && (
               <span className="prism-badge prism-badge-amber animate-pulse" style={{ fontSize: '11px', marginLeft: '6px' }}>
                 <span className="animate-spin">⟳</span>
