@@ -125,3 +125,128 @@ export async function decryptSensitiveData(encryptedPackage, password) {
     throw error;
   }
 }
+
+// ─── 裝置透明加密 (Device-bound Transparent Encryption via IndexedDB) ─────────────
+const DEVICE_CRYPTO_DB = 'cafe_prism_crypto_v1';
+const DEVICE_KEY_STORE = 'keys';
+const DEVICE_ROOT_KEY_ID = 'device_root_key';
+
+let cachedDeviceKey = null;
+
+function openDeviceCryptoDb() {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      return reject(new Error('IndexedDB is not supported'));
+    }
+    const req = indexedDB.open(DEVICE_CRYPTO_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(DEVICE_KEY_STORE)) {
+        db.createObjectStore(DEVICE_KEY_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/**
+ * 取得或生成裝置專屬不可導出 (non-extractable) 之 AES-GCM 256-bit CryptoKey
+ */
+export async function getOrGenerateDeviceKey() {
+  if (cachedDeviceKey) return cachedDeviceKey;
+  if (!window.crypto?.subtle) {
+    throw new Error('Web Crypto API is not supported in this browser.');
+  }
+
+  const db = await openDeviceCryptoDb();
+  return new Promise((resolve, reject) => {
+    try {
+      const tx = db.transaction(DEVICE_KEY_STORE, 'readonly');
+      const store = tx.objectStore(DEVICE_KEY_STORE);
+      const req = store.get(DEVICE_ROOT_KEY_ID);
+
+      req.onsuccess = async () => {
+        if (req.result) {
+          cachedDeviceKey = req.result;
+          resolve(req.result);
+          return;
+        }
+
+        // 不存在則生成全新不可導出之 256 位元金鑰
+        try {
+          const newKey = await window.crypto.subtle.generateKey(
+            { name: 'AES-GCM', length: 256 },
+            false, // non-extractable: 任何 JS 程式碼皆無法導出二進位金鑰
+            ['encrypt', 'decrypt']
+          );
+
+          const writeTx = db.transaction(DEVICE_KEY_STORE, 'readwrite');
+          const writeStore = writeTx.objectStore(DEVICE_KEY_STORE);
+          writeStore.put(newKey, DEVICE_ROOT_KEY_ID);
+
+          writeTx.oncomplete = () => {
+            cachedDeviceKey = newKey;
+            resolve(newKey);
+          };
+          writeTx.onerror = () => reject(writeTx.error);
+        } catch (genErr) {
+          reject(genErr);
+        }
+      };
+
+      req.onerror = () => reject(req.error);
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+/**
+ * 使用裝置金鑰自動加密敏感資料 (免密碼)
+ * @param {Object} dataObj 要加密的物件
+ * @returns {Promise<{ mode: 'transparent', iv: string, ciphertext: string }>}
+ */
+export async function encryptWithDeviceKey(dataObj) {
+  const deviceKey = await getOrGenerateDeviceKey();
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const enc = new TextEncoder();
+  const encoded = enc.encode(JSON.stringify(dataObj));
+
+  const cipherBuffer = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    deviceKey,
+    encoded
+  );
+
+  return {
+    mode: 'transparent',
+    iv: uint8ToBase64(iv),
+    ciphertext: uint8ToBase64(new Uint8Array(cipherBuffer)),
+  };
+}
+
+/**
+ * 使用裝置金鑰自動解密敏感資料 (免密碼)
+ * @param {{ iv: string, ciphertext: string }} encryptedPackage
+ * @returns {Promise<Object>} 解密後的原始物件
+ */
+export async function decryptWithDeviceKey(encryptedPackage) {
+  const { iv, ciphertext } = encryptedPackage || {};
+  if (!iv || !ciphertext) {
+    throw new Error('INVALID_ENCRYPTED_PACKAGE');
+  }
+
+  const deviceKey = await getOrGenerateDeviceKey();
+  const ivUint8 = base64ToUint8(iv);
+  const ciphertextUint8 = base64ToUint8(ciphertext);
+
+  const decryptedBuffer = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: ivUint8 },
+    deviceKey,
+    ciphertextUint8
+  );
+
+  const dec = new TextDecoder();
+  return JSON.parse(dec.decode(decryptedBuffer));
+}

@@ -241,14 +241,18 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
   const [fetchStatus, setFetchStatus] = useState('idle'); // 'idle' | 'success' | 'error'
   const [fetchErrorDetail, setFetchErrorDetail] = useState('');
 
-  // 密碼保護狀態管理
+  // 密碼保護與安全模式狀態管理
+  const [securityMode, setSecurityMode] = useState(() => Storage.getSecurityMode());
   const [isProtected, setIsProtected] = useState(() => Storage.hasPasswordProtection());
   const [isUnlocked, setIsUnlocked] = useState(() => Storage.isUnlocked());
   const [modalType, setModalType] = useState(null); // 'set' | 'change' | 'unlock' | null
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [securityMsg, setSecurityMsg] = useState('');
 
   const currentApiKey = (s.apiKeys && s.apiKeys[s.provider]) || (s.provider === 'groq' ? s.apiKey : '') || '';
 
   const syncSettings = () => {
+    setSecurityMode(Storage.getSecurityMode());
     setIsProtected(Storage.hasPasswordProtection());
     setIsUnlocked(Storage.isUnlocked());
     const stored = Storage.getSettings();
@@ -388,18 +392,39 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
   const handleEnableProtection = async ({ newPassword }) => {
     await Storage.enablePasswordProtection(newPassword, s);
     syncSettings();
+    setSecurityMsg(t.settings.savedSuccess || '✓');
+    setTimeout(() => setSecurityMsg(''), 3500);
   };
 
   const handleChangePassword = async ({ oldPassword, newPassword }) => {
     await Storage.changePassword(oldPassword, newPassword);
     syncSettings();
+    setSecurityMsg(t.settings.savedSuccess || '✓');
+    setTimeout(() => setSecurityMsg(''), 3500);
+  };
+
+  const handleSwitchToTransparent = async () => {
+    try {
+      await Storage.enableTransparentProtection(s);
+      syncSettings();
+      setSecurityMsg(t.settings.transparentEnabledNotice);
+      setTimeout(() => setSecurityMsg(''), 3500);
+    } catch (err) {
+      setSecurityMsg(`Error: ${err.message}`);
+    }
+  };
+
+  const handleSwitchToPlaintext = () => {
+    if (window.confirm(t.settings.disableProtectionConfirm)) {
+      Storage.disableProtectionToPlaintext();
+      syncSettings();
+      setSecurityMsg(t.settings.plaintextEnabledNotice);
+      setTimeout(() => setSecurityMsg(''), 3500);
+    }
   };
 
   const handleDisableProtection = () => {
-    if (window.confirm(t.settings.disableProtectionConfirm)) {
-      Storage.disablePasswordProtection();
-      syncSettings();
-    }
+    handleSwitchToPlaintext();
   };
 
   const handleLock = () => {
@@ -472,84 +497,182 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
         </div>
       </div>
 
-      {/* Master Password Protection Section */}
-      <Section title={t.settings.passwordProtection}>
+      {/* Key Storage & Encryption Mode Section */}
+      <Section title={t.settings.securityStorageSection || t.settings.passwordProtection}>
         <div
           className="prism-card"
           style={{
-            padding: '18px 20px',
+            padding: '20px',
             marginBottom: '24px',
             background: 'var(--prism-bg-glass-card)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-            <div style={{ flex: 1, minWidth: '240px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--prism-text-primary)' }}>
-                  {t.settings.passwordProtection}
+          {/* Status Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--prism-text-primary)' }}>
+                {t.settings.securityStorageSection || 'API 金鑰儲存防護模式'}
+              </span>
+              {securityMode === 'transparent' && (
+                <span className="prism-badge prism-badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span>🛡️</span> {t.settings.transparentActiveBadge || '裝置已加密'}
                 </span>
-                <span className={`prism-badge ${isProtected ? 'prism-badge-success' : 'prism-badge-warning'}`}>
-                  {isProtected ? t.settings.passwordStatusProtected : t.settings.passwordStatusUnprotected}
-                </span>
-                {isProtected && (
+              )}
+              {securityMode === 'password' && (
+                <>
+                  <span className="prism-badge prism-badge-success">
+                    {t.settings.passwordStatusProtected}
+                  </span>
                   <span className={`prism-badge ${isUnlocked ? 'prism-badge-amber' : 'prism-badge-danger'}`}>
                     {isUnlocked ? t.settings.unlockedBadge : t.settings.lockedBadge}
                   </span>
+                </>
+              )}
+              {securityMode === 'plaintext' && (
+                <span className="prism-badge prism-badge-warning">
+                  {t.settings.passwordStatusUnprotected}
+                </span>
+              )}
+            </div>
+
+            {securityMode === 'password' && isProtected && (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {!isUnlocked ? (
+                  <button
+                    type="button"
+                    onClick={() => setModalType('unlock')}
+                    className="prism-btn prism-btn-primary"
+                  >
+                    🔓 {t.settings.unlockBtn}
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleLock}
+                      className="prism-btn prism-btn-ghost"
+                    >
+                      🔒 {t.settings.lockNowBtn}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setModalType('change')}
+                      className="prism-btn prism-btn-ghost"
+                    >
+                      🔑 {t.settings.changePasswordBtn}
+                    </button>
+                  </>
                 )}
               </div>
-              <p style={{ margin: 0, fontSize: '12px', color: 'var(--prism-text-muted)', lineHeight: 1.45 }}>
-                {t.settings.passwordProtectionHint}
+            )}
+          </div>
+
+          {/* 3 Modes Option Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+            {/* 1. Device Transparent Mode (Recommended) */}
+            <div
+              onClick={() => {
+                if (securityMode !== 'transparent') handleSwitchToTransparent();
+              }}
+              style={{
+                padding: '14px 16px',
+                borderRadius: '8px',
+                cursor: securityMode === 'transparent' ? 'default' : 'pointer',
+                border: securityMode === 'transparent' ? '1px solid var(--prism-amber-400)' : '1px solid var(--prism-border-glass)',
+                background: securityMode === 'transparent' ? 'rgba(200, 160, 96, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: securityMode === 'transparent' ? 'var(--prism-amber-400)' : 'var(--prism-text-primary)' }}>
+                  🛡️ {t.settings.securityModeTransparent}
+                </span>
+                <input
+                  type="radio"
+                  name="securityMode"
+                  checked={securityMode === 'transparent'}
+                  onChange={handleSwitchToTransparent}
+                  style={{ accentColor: 'var(--prism-amber-400)', cursor: 'pointer' }}
+                />
+              </div>
+              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--prism-text-muted)', lineHeight: 1.45 }}>
+                {t.settings.securityModeTransparentDesc}
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {!isProtected ? (
-                <button
-                  type="button"
-                  onClick={() => setModalType('set')}
-                  className="prism-btn prism-btn-primary"
-                >
-                  🔒 {t.settings.enableProtectionBtn}
-                </button>
-              ) : (
-                <>
-                  {!isUnlocked ? (
-                    <button
-                      type="button"
-                      onClick={() => setModalType('unlock')}
-                      className="prism-btn prism-btn-primary"
-                    >
-                      🔓 {t.settings.unlockBtn}
-                    </button>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={handleLock}
-                        className="prism-btn prism-btn-ghost"
-                      >
-                        🔒 {t.settings.lockNowBtn}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setModalType('change')}
-                        className="prism-btn prism-btn-ghost"
-                      >
-                        🔑 {t.settings.changePasswordBtn}
-                      </button>
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleDisableProtection}
-                    className="prism-btn prism-btn-danger"
-                  >
-                    {t.settings.disableProtectionBtn}
-                  </button>
-                </>
-              )}
+            {/* 2. Plaintext Mode */}
+            <div
+              onClick={() => {
+                if (securityMode !== 'plaintext') handleSwitchToPlaintext();
+              }}
+              style={{
+                padding: '14px 16px',
+                borderRadius: '8px',
+                cursor: securityMode === 'plaintext' ? 'default' : 'pointer',
+                border: securityMode === 'plaintext' ? '1px solid var(--prism-amber-400)' : '1px solid var(--prism-border-glass)',
+                background: securityMode === 'plaintext' ? 'rgba(200, 160, 96, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: securityMode === 'plaintext' ? 'var(--prism-amber-400)' : 'var(--prism-text-primary)' }}>
+                  📄 {t.settings.securityModePlaintext}
+                </span>
+                <input
+                  type="radio"
+                  name="securityMode"
+                  checked={securityMode === 'plaintext'}
+                  onChange={handleSwitchToPlaintext}
+                  style={{ accentColor: 'var(--prism-amber-400)', cursor: 'pointer' }}
+                />
+              </div>
+              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--prism-text-muted)', lineHeight: 1.45 }}>
+                {t.settings.securityModePlaintextDesc}
+              </p>
+            </div>
+
+            {/* 3. Password Protection Mode */}
+            <div
+              onClick={() => {
+                if (securityMode !== 'password') setModalType('set');
+              }}
+              style={{
+                padding: '14px 16px',
+                borderRadius: '8px',
+                cursor: securityMode === 'password' ? 'default' : 'pointer',
+                border: securityMode === 'password' ? '1px solid var(--prism-amber-400)' : '1px solid var(--prism-border-glass)',
+                background: securityMode === 'password' ? 'rgba(200, 160, 96, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: securityMode === 'password' ? 'var(--prism-amber-400)' : 'var(--prism-text-primary)' }}>
+                  🔐 {t.settings.securityModePassword}
+                </span>
+                <input
+                  type="radio"
+                  name="securityMode"
+                  checked={securityMode === 'password'}
+                  onChange={() => {
+                    if (securityMode !== 'password') setModalType('set');
+                  }}
+                  style={{ accentColor: 'var(--prism-amber-400)', cursor: 'pointer' }}
+                />
+              </div>
+              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--prism-text-muted)', lineHeight: 1.45 }}>
+                {t.settings.securityModePasswordDesc}
+              </p>
             </div>
           </div>
+
+          {securityMsg && (
+            <p style={{ margin: 0, fontSize: '12px', color: securityMsg.startsWith('✓') ? 'var(--prism-success)' : 'var(--prism-danger)' }}>
+              {securityMsg}
+            </p>
+          )}
         </div>
       </Section>
 
@@ -671,7 +794,7 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
               <div style={{ display: 'flex', gap: '10px' }}>
                 <input
                   className="prism-input"
-                  type="password"
+                  type={showApiKey ? "text" : "password"}
                   style={{ flex: 1 }}
                   value={currentApiKey}
                   onChange={e => {
@@ -698,6 +821,16 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                   }
                   disabled={isProtected && !isUnlocked}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(v => !v)}
+                  className="prism-btn prism-btn-ghost"
+                  style={{ padding: '0 12px' }}
+                  title={showApiKey ? t.settings.toggleMaskHide : t.settings.toggleMaskShow}
+                  disabled={isProtected && !isUnlocked}
+                >
+                  {showApiKey ? '🙈' : '👁️'}
+                </button>
                 {isProtected && !isUnlocked && (
                   <button
                     type="button"
@@ -829,13 +962,23 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <input
                       className="prism-input"
-                      type="password"
+                      type={showApiKey ? "text" : "password"}
                       style={{ flex: 1 }}
                       value={s.scholarApiKey}
                       onChange={e => update('scholarApiKey', e.target.value)}
                       placeholder={isProtected && !isUnlocked ? t.settings.tokenLockedPlaceholder : t.settings.scholarApiKeyPlaceholder}
                       disabled={isProtected && !isUnlocked}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(v => !v)}
+                      className="prism-btn prism-btn-ghost"
+                      style={{ padding: '0 12px' }}
+                      title={showApiKey ? t.settings.toggleMaskHide : t.settings.toggleMaskShow}
+                      disabled={isProtected && !isUnlocked}
+                    >
+                      {showApiKey ? '🙈' : '👁️'}
+                    </button>
                     {isProtected && !isUnlocked && (
                       <button
                         type="button"
@@ -870,13 +1013,23 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
           <div style={{ display: 'flex', gap: '10px' }}>
             <input
               className="prism-input"
-              type="password"
+              type={showApiKey ? "text" : "password"}
               style={{ flex: 1 }}
               value={s.botToken}
               onChange={e => update('botToken', e.target.value)}
               placeholder={isProtected && !isUnlocked ? t.settings.tokenLockedPlaceholder : "1234567890:AAF..."}
               disabled={isProtected && !isUnlocked}
             />
+            <button
+              type="button"
+              onClick={() => setShowApiKey(v => !v)}
+              className="prism-btn prism-btn-ghost"
+              style={{ padding: '0 12px' }}
+              title={showApiKey ? t.settings.toggleMaskHide : t.settings.toggleMaskShow}
+              disabled={isProtected && !isUnlocked}
+            >
+              {showApiKey ? '🙈' : '👁️'}
+            </button>
             {isProtected && !isUnlocked && (
               <button
                 type="button"
