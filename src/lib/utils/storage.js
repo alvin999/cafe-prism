@@ -18,11 +18,19 @@ function normalizeApiKeys(raw) {
   return keys;
 }
 
+function getRawSettingsInternal() {
+  try {
+    return JSON.parse(localStorage.getItem('cr_settings') || '{}');
+  } catch {
+    return {};
+  }
+}
+
 // ─── 自動背景透明解密 ─────────────────────────────────────────────────────────
 async function initTransparentDecryption() {
   if (typeof window === 'undefined') return;
   try {
-    const raw = Storage.getRawSettings();
+    const raw = getRawSettingsInternal();
     if (raw._transparent_keys && !sessionDecryptedKeys) {
       const decrypted = await decryptWithDeviceKey(raw._transparent_keys);
       const keys = decrypted.apiKeys || (decrypted.apiKey ? { [raw.provider || 'groq']: decrypted.apiKey } : {});
@@ -40,20 +48,9 @@ async function initTransparentDecryption() {
   }
 }
 
-// 瀏覽器載入時預設觸發自動解密
-if (typeof window !== 'undefined') {
-  transparentInitPromise = initTransparentDecryption();
-}
-
 // ─── LocalStorage persistence ─────────────────────────────────────────────────
 export const Storage = {
-  getRawSettings: () => {
-    try {
-      return JSON.parse(localStorage.getItem('cr_settings') || '{}');
-    } catch {
-      return {};
-    }
-  },
+  getRawSettings: getRawSettingsInternal,
 
   /**
    * 取得當前金鑰儲存防護模式：
@@ -388,3 +385,8 @@ export const Storage = {
     return true;
   },
 };
+
+// 瀏覽器載入且 Storage 物件已完整就緒後，在背景觸發自動透明解密
+if (typeof window !== 'undefined') {
+  transparentInitPromise = initTransparentDecryption();
+}
