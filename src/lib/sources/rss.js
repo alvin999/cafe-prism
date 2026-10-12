@@ -25,13 +25,15 @@ export function parseRSS(xmlText) {
 async function fetchFeedContent(url) {
   let lastErr = null;
 
-  // 1. 優先使用原生代理通道（Cloudflare _redirects / Vite proxy）
+  // 1. 優先使用原生代理通道（Cloudflare Pages Functions / Vite proxy）
   try {
     let proxyPath = null;
     if (url.includes('news.google.com')) {
       proxyPath = url.replace('https://news.google.com', '/api-news');
     } else if (url.includes('sprudge.com')) {
       proxyPath = url.replace('https://sprudge.com', '/api-sprudge');
+    } else if (url.includes('dailycoffeenews.com')) {
+      proxyPath = url.replace('https://dailycoffeenews.com', '/api-dcn');
     }
 
     if (proxyPath) {
@@ -60,15 +62,21 @@ async function fetchFeedContent(url) {
     lastErr = err;
   }
 
-  // 3. 備援：使用 allorigins 公開代理
-  try {
-    const res = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`, {}, 7000);
-    if (res.ok) {
-      const text = await res.text();
-      if (text.includes('<item') || text.includes('<entry')) return text;
+  // 3. 備援：使用公開 CORS 代理 (corsproxy.io / allorigins)
+  const publicProxies = [
+    `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+  ];
+  for (const proxyEndpoint of publicProxies) {
+    try {
+      const res = await fetchWithTimeout(proxyEndpoint, {}, 6000);
+      if (res.ok) {
+        const text = await res.text();
+        if (text.includes('<item') || text.includes('<entry')) return text;
+      }
+    } catch (err) {
+      lastErr = err;
     }
-  } catch (err) {
-    lastErr = err;
   }
 
   throw lastErr || new Error(`無法連線至新聞來源: ${url}`);
@@ -94,6 +102,11 @@ export async function fetchCoffeeRSS(keywords, discoveryMode = false) {
         type: 'trending',
         quota: 5,
       },
+      {
+        url: 'https://dailycoffeenews.com/feed',
+        type: 'trending',
+        quota: 5,
+      },
       // 軌道 2：當日主題深入專題 (Topic News ~50%)
       {
         url: `https://news.google.com/rss/search?q=${encodeURIComponent(currentTopic.newsQuery)}&hl=en-US&gl=US&ceid=US:en`,
@@ -111,6 +124,11 @@ export async function fetchCoffeeRSS(keywords, discoveryMode = false) {
       },
       {
         url: 'https://sprudge.com/feed',
+        type: 'custom',
+        quota: 5,
+      },
+      {
+        url: 'https://dailycoffeenews.com/feed',
         type: 'custom',
         quota: 5,
       },

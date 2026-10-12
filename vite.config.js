@@ -55,6 +55,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-sprudge/, '')
       },
+      '/api-dcn': {
+        target: 'https://dailycoffeenews.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-dcn/, '')
+      },
       '/api-allorigins': {
         target: 'https://api.allorigins.win',
         changeOrigin: true,

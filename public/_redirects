@@ -1,11 +1,12 @@
 # Cloudflare Pages Redirects / Proxy
 # Format: /local-path/* https://target-domain.com/:splat 200
 
-# /api-scholar and /api-reddit are handled by Cloudflare Pages Functions in /functions
-
-/api-news/* https://news.google.com/:splat 200
-/api-sprudge/* https://sprudge.com/:splat 200
-/api-allorigins/* https://api.allorigins.win/:splat 200
+# API 端點由 Cloudflare Pages Functions (/functions) 原生處理：
+# - /api-scholar/* -> functions/api-scholar/[[path]].js
+# - /api-reddit/*  -> functions/api-reddit/[[path]].js
+# - /api-news/*    -> functions/api-news/[[path]].js
+# - /api-sprudge/* -> functions/api-sprudge/[[path]].js
+# - /api-feed      -> functions/api-feed.js
 
 # SPA Fallback: 支援 HTML5 History API 路由與單頁應用程式重整
 /*    /index.html   200

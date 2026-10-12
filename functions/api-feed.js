@@ -98,36 +98,55 @@ export async function onRequest(context) {
     );
   }
 
-  try {
-    const resp = await fetch(targetUrl, {
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
-      },
-    });
+  const userAgents = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'FeedFetcher-Google; (+http://www.google.com/feedfetcher.html)',
+    'Mozilla/5.0 (compatible; CafePrismBot/1.0; +https://cafe-prism.pages.dev)',
+  ];
 
-    const contentType = resp.headers.get('content-type') || 'text/xml; charset=utf-8';
-    const body = await resp.text();
+  let lastStatus = 500;
+  let lastBody = '';
+  let lastContentType = 'text/xml; charset=utf-8';
 
-    return new Response(body, {
-      status: resp.status,
-      headers: {
-        'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'public, max-age=300', // 快取 5 分鐘，避免過度頻繁請求目標伺服器
-      },
-    });
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: 'Failed to fetch feed', message: err.message }),
-      {
-        status: 500,
+  for (const ua of userAgents) {
+    try {
+      const resp = await fetch(targetUrl, {
         headers: {
-          'Content-Type': 'application/json; charset=utf-8',
-          'Access-Control-Allow-Origin': '*',
+          'User-Agent': ua,
+          'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
         },
+        redirect: 'follow',
+      });
+
+      lastStatus = resp.status;
+      lastContentType = resp.headers.get('content-type') || 'text/xml; charset=utf-8';
+      lastBody = await resp.text();
+
+      // 若回傳內容為真正的 RSS/Atom XML 內容，立即返回
+      if (resp.ok && (lastBody.includes('<item') || lastBody.includes('<entry') || lastBody.includes('<rss'))) {
+        return new Response(lastBody, {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/xml; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=300', // 快取 5 分鐘，避免過度頻繁請求目標伺服器
+          },
+        });
       }
-    );
+    } catch (err) {
+      lastBody = err.message;
+    }
   }
+
+  return new Response(
+    lastBody || JSON.stringify({ error: 'Failed to fetch valid feed content' }),
+    {
+      status: lastStatus >= 400 ? lastStatus : 502,
+      headers: {
+        'Content-Type': lastContentType,
+        'Access-Control-Allow-Origin': '*',
+      },
+    }
+  );
 }
