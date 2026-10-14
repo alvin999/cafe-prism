@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLang } from '../App.jsx';
-import { Storage, sendTelegram, fetchOllamaModels, fetchProviderModels } from '../lib/engine.js';
+import { Storage, sendTelegram, fetchOllamaModels, fetchProviderModels, testLLMConnection } from '../lib/engine.js';
 import UnlockModal from '../components/UnlockModal.jsx';
 
 function Section({ title, children }) {
@@ -240,6 +240,8 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
   const [fetchingCloud, setFetchingCloud] = useState(false);
   const [fetchStatus, setFetchStatus] = useState('idle'); // 'idle' | 'success' | 'error'
   const [fetchErrorDetail, setFetchErrorDetail] = useState('');
+  const [testingLLM, setTestingLLM] = useState(false);
+  const [llmTestResult, setLlmTestResult] = useState(null);
 
   // 密碼保護與安全模式狀態管理
   const [securityMode, setSecurityMode] = useState(() => Storage.getSecurityMode());
@@ -330,7 +332,7 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
       if (models && models.length > 0) {
         setCloudModels(models);
         setFetchStatus('success');
-        if (!models.find(m => m.id === s.model)) {
+        if (!s.model) {
           update('model', models[0].id);
         }
       } else {
@@ -360,6 +362,32 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
       setFetchStatus('idle');
     }
   }, [s.provider, s.apiKeys?.[s.provider], s.modelType]);
+
+  const handleTestLLM = async () => {
+    setTestingLLM(true);
+    setLlmTestResult(null);
+    try {
+      const res = await testLLMConnection(s);
+      if (res.success) {
+        setLlmTestResult({
+          success: true,
+          message: `${t.settings.testConnectionSuccess} (${res.latencyMs}ms)`,
+        });
+      } else {
+        setLlmTestResult({
+          success: false,
+          message: `${t.settings.testConnectionFailed}: ${res.error}`,
+        });
+      }
+    } catch (err) {
+      setLlmTestResult({
+        success: false,
+        message: `${t.settings.testConnectionFailed}: ${err.message || 'Error'}`,
+      });
+    } finally {
+      setTestingLLM(false);
+    }
+  };
 
   const save = async () => {
     await Storage.saveSettings(s);
@@ -861,6 +889,35 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
             </Field>
           </>
         )}
+
+        {/* LLM Connection Test */}
+        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--prism-border-glass)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleTestLLM}
+              disabled={testingLLM || (s.modelType === 'cloud' && (!currentApiKey || currentApiKey.trim().length <= 5))}
+              className="prism-btn prism-btn-ghost"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', fontSize: '13px' }}
+            >
+              <span>{testingLLM ? '⏳' : '⚡'}</span>
+              <span>{testingLLM ? t.settings.testingConnection : t.settings.testConnection}</span>
+            </button>
+            {llmTestResult && (
+              <span
+                style={{
+                  fontSize: '12.5px',
+                  color: llmTestResult.success ? 'var(--prism-success)' : 'var(--prism-danger)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                {llmTestResult.message}
+              </span>
+            )}
+          </div>
+        </div>
       </Section>
 
       {/* Sources */}

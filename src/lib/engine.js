@@ -8,6 +8,7 @@ import {
   fetchAnthropicModels,
   fetchGeminiModels,
   fetchProviderModels,
+  testLLMConnection,
 } from './llm/index.js';
 import {
   computeNextRun,
@@ -27,6 +28,7 @@ export {
   fetchAnthropicModels,
   fetchGeminiModels,
   fetchProviderModels,
+  testLLMConnection,
   computeNextRun,
   getPreviousScheduledRunTime,
   checkMissedRun,

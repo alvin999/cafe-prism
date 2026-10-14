@@ -189,8 +189,15 @@ export async function fetchGroqModels(apiKey) {
   });
   if (!r.ok) throw new Error('Failed to fetch Groq models');
   const d = await r.json();
-  // Filter for text models only (exclude whisper/image if any)
-  return (d.data || []).map(m => ({ id: m.id, name: m.id }));
+  // Filter for text generation models only (exclude whisper, guard, audio, vision, embedding, rerank)
+  const excludePatterns = ['whisper', 'guard', 'audio', 'vision', 'image', 'tts', 'embedding', 'rerank'];
+  return (d.data || [])
+    .filter(m => {
+      const id = (m.id || '').toLowerCase();
+      return !excludePatterns.some(pattern => id.includes(pattern));
+    })
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(m => ({ id: m.id, name: m.id }));
 }
 
 export async function fetchOpenAIModels(apiKey) {
@@ -199,11 +206,16 @@ export async function fetchOpenAIModels(apiKey) {
   });
   if (!r.ok) throw new Error('Failed to fetch OpenAI models');
   const d = await r.json();
+  const excludePatterns = [
+    'instruct', 'realtime', 'audio', 'whisper', 'tts', 'dall-e',
+    'embedding', 'babbage', 'davinci', 'curie', 'ada', 'moderation'
+  ];
   return (d.data || [])
-    .filter(m => (m.id.startsWith('gpt-') || m.id.startsWith('o1') || m.id.startsWith('o3')) &&
-      !m.id.includes('instruct') &&
-      !m.id.includes('realtime') &&
-      !m.id.includes('audio'))
+    .filter(m => {
+      const id = (m.id || '').toLowerCase();
+      const isChatFamily = id.startsWith('gpt-') || id.startsWith('o1') || id.startsWith('o3');
+      return isChatFamily && !excludePatterns.some(pattern => id.includes(pattern));
+    })
     .sort((a, b) => a.id.localeCompare(b.id))
     .map(m => ({ id: m.id, name: m.id }));
 }
@@ -218,15 +230,26 @@ export async function fetchAnthropicModels(apiKey) {
   });
   if (!r.ok) throw new Error('Failed to fetch Anthropic models');
   const d = await r.json();
-  return (d.data || []).map(m => ({ id: m.id, name: m.display_name || m.id }));
+  // Filter out legacy models (e.g. claude-1, claude-2.0)
+  return (d.data || [])
+    .filter(m => {
+      const id = (m.id || '').toLowerCase();
+      return !id.startsWith('claude-1') && !id.startsWith('claude-2.0');
+    })
+    .map(m => ({ id: m.id, name: m.display_name || m.id }));
 }
 
 export async function fetchGeminiModels(apiKey) {
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
   if (!r.ok) throw new Error('Failed to fetch Gemini models');
   const d = await r.json();
+  const excludePatterns = ['embedding', 'aqa', 'imagen'];
   return (d.models || [])
-    .filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name.includes('gemini'))
+    .filter(m => {
+      const name = (m.name || '').toLowerCase();
+      const hasGenContent = m.supportedGenerationMethods?.includes('generateContent');
+      return hasGenContent && name.includes('gemini') && !excludePatterns.some(pattern => name.includes(pattern));
+    })
     .map(m => {
       const id = m.name.replace(/^models\//, '');
       return { id, name: m.displayName || id };
@@ -254,7 +277,34 @@ export async function fetchOllamaModels(ollamaUrl) {
   const r = await fetch(endpoint);
   if (!r.ok) throw new Error('Ollama not found');
   const d = await r.json();
-  return d.models || [];
+  const excludePatterns = ['embed', 'bge', 'nomic'];
+  return (d.models || [])
+    .map(m => (typeof m === 'string' ? m : m.name))
+    .filter(name => {
+      const lower = (name || '').toLowerCase();
+      return !excludePatterns.some(pattern => lower.includes(pattern));
+    });
+}
+
+export async function testLLMConnection(settings) {
+  const start = performance.now();
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const testPrompt = 'Respond with "OK".';
+    await callLLM(settings, testPrompt, 0, controller.signal);
+    const latencyMs = Math.round(performance.now() - start);
+    return { success: true, latencyMs };
+  } catch (err) {
+    let message = err.message || 'Unknown error';
+    if (err.name === 'AbortError' || controller.signal.aborted) {
+      message = 'Request timeout (12s)';
+    }
+    return { success: false, error: message };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function buildGroundedSummaryPrompt(articles, language) {
