@@ -115,6 +115,7 @@ export default function App() {
   });
   const saveSettingsRef = useRef(null);
   const discardSettingsRef = useRef(null);
+  const isFirstMount = useRef(true);
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(prev => {
@@ -128,8 +129,11 @@ export default function App() {
   const schedulerStatus = useGlobalScheduler();
 
   useEffect(() => {
-    const s = Storage.getSettings();
-    Storage.saveSettings({ ...s, language: lang });
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    Storage.setLanguage(lang);
   }, [lang]);
 
   useEffect(() => {

@@ -91,6 +91,18 @@ export const Storage = {
 
   getSessionPassword: () => sessionPassword,
 
+  /**
+   * 專門更新介面語系，不碰觸或覆寫任何敏感金鑰與加密密文
+   */
+  setLanguage: (lang) => {
+    const raw = getRawSettingsInternal();
+    raw.language = lang;
+    localStorage.setItem('cr_settings', JSON.stringify(raw));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('cr:settings-updated'));
+    }
+  },
+
   getSettings: () => {
     const raw = Storage.getRawSettings();
     const discoveryMode = raw.discoveryMode !== undefined ? raw.discoveryMode : true;
@@ -156,6 +168,8 @@ export const Storage = {
   },
 
   saveSettings: async (s) => {
+    // 儲存前確保背景透明解密已就緒，避免非同步競態覆寫
+    await Storage.ensureReady();
     const raw = Storage.getRawSettings();
     const mode = Storage.getSecurityMode();
 
@@ -163,10 +177,10 @@ export const Storage = {
       const toSave = { ...s };
       if (sessionPassword) {
         const sensitive = {
-          apiKey: s.apiKey ?? sessionDecryptedKeys?.apiKey ?? '',
-          apiKeys: s.apiKeys ?? sessionDecryptedKeys?.apiKeys ?? (s.apiKey ? { [s.provider || 'groq']: s.apiKey } : {}),
-          botToken: s.botToken ?? sessionDecryptedKeys?.botToken ?? '',
-          scholarApiKey: s.scholarApiKey ?? sessionDecryptedKeys?.scholarApiKey ?? '',
+          apiKey: (s.apiKey !== undefined && s.apiKey !== '') ? s.apiKey : (sessionDecryptedKeys?.apiKey || ''),
+          apiKeys: (s.apiKeys && Object.keys(s.apiKeys).length > 0) ? s.apiKeys : (sessionDecryptedKeys?.apiKeys || (s.apiKey ? { [s.provider || 'groq']: s.apiKey } : {})),
+          botToken: (s.botToken !== undefined && s.botToken !== '') ? s.botToken : (sessionDecryptedKeys?.botToken || ''),
+          scholarApiKey: (s.scholarApiKey !== undefined && s.scholarApiKey !== '') ? s.scholarApiKey : (sessionDecryptedKeys?.scholarApiKey || ''),
         };
         const encrypted = await encryptSensitiveData(sensitive, sessionPassword);
         toSave._encrypted_keys = encrypted;
@@ -182,19 +196,32 @@ export const Storage = {
       localStorage.setItem('cr_settings', JSON.stringify(toSave));
     } else if (mode === 'transparent') {
       const toSave = { ...s };
-      const sensitive = {
-        apiKey: s.apiKey ?? sessionDecryptedKeys?.apiKey ?? '',
-        apiKeys: s.apiKeys ?? sessionDecryptedKeys?.apiKeys ?? (s.apiKey ? { [s.provider || 'groq']: s.apiKey } : {}),
-        botToken: s.botToken ?? sessionDecryptedKeys?.botToken ?? '',
-        scholarApiKey: s.scholarApiKey ?? sessionDecryptedKeys?.scholarApiKey ?? '',
-      };
-      try {
-        const encrypted = await encryptWithDeviceKey(sensitive);
-        toSave._transparent_keys = encrypted;
-        sessionDecryptedKeys = sensitive;
-      } catch (err) {
-        console.error('[CafePrism] 透明加密儲存失敗:', err);
-        if (raw._transparent_keys) toSave._transparent_keys = raw._transparent_keys;
+
+      // 檢查傳入物件是否有顯式包含敏感金鑰資訊
+      const hasExplicitKeys =
+        Boolean(s.apiKey) ||
+        Boolean(s.apiKeys && Object.values(s.apiKeys).some(k => typeof k === 'string' && k.trim().length > 0)) ||
+        Boolean(s.botToken) ||
+        Boolean(s.scholarApiKey);
+
+      if (!sessionDecryptedKeys && !hasExplicitKeys && raw._transparent_keys) {
+        // 解密尚未就緒或失敗，且呼叫方未提供新金鑰時，保留既有加密密文，防止空值覆寫
+        toSave._transparent_keys = raw._transparent_keys;
+      } else {
+        const sensitive = {
+          apiKey: (s.apiKey !== undefined && s.apiKey !== '') ? s.apiKey : (sessionDecryptedKeys?.apiKey || ''),
+          apiKeys: (s.apiKeys && Object.keys(s.apiKeys).length > 0) ? s.apiKeys : (sessionDecryptedKeys?.apiKeys || (s.apiKey ? { [s.provider || 'groq']: s.apiKey } : {})),
+          botToken: (s.botToken !== undefined && s.botToken !== '') ? s.botToken : (sessionDecryptedKeys?.botToken || ''),
+          scholarApiKey: (s.scholarApiKey !== undefined && s.scholarApiKey !== '') ? s.scholarApiKey : (sessionDecryptedKeys?.scholarApiKey || ''),
+        };
+        try {
+          const encrypted = await encryptWithDeviceKey(sensitive);
+          toSave._transparent_keys = encrypted;
+          sessionDecryptedKeys = sensitive;
+        } catch (err) {
+          console.error('[CafePrism] 透明加密儲存失敗:', err);
+          if (raw._transparent_keys) toSave._transparent_keys = raw._transparent_keys;
+        }
       }
       delete toSave._encrypted_keys;
       delete toSave.apiKey;
