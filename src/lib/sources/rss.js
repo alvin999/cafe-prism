@@ -1,6 +1,7 @@
 import { fetchWithTimeout } from '../api/proxy.js';
 import { getDailyDiscoveryTopic } from '../pipeline/topics.js';
 import { sanitizeHtmlText } from '../utils/sanitize.js';
+import { Storage } from '../utils/storage.js';
 
 // ─── RSS parser ─────────────────────────────────────────────────────────────
 export function parseRSS(xmlText) {
@@ -86,58 +87,57 @@ export async function fetchCoffeeRSS(keywords, discoveryMode = false) {
   const isDiscovery = discoveryMode || keywords.length === 0;
   const currentTopic = isDiscovery ? getDailyDiscoveryTopic() : null;
 
-  // 雙軌制來源規劃：軌道 1（今日即時頭條與產業快訊）＋ 軌道 2（今日探索主題深入專欄）
+  // 動態讀取自訂與內建已啟用的 RSS 來源
+  const allCustom = Storage.getCustomSources ? Storage.getCustomSources() : [];
+  const activeRssSources = allCustom.filter(s => s.type === 'rss' && s.enabled);
+
+  // 雙軌制來源規劃：軌道 1（今日即時頭條與自訂 RSS）＋ 軌道 2（今日探索主題深入專欄）
   let feedConfigs = [];
 
+  // Google News 基礎頭條軌道
   if (isDiscovery) {
-    feedConfigs = [
-      // 軌道 1：即時頭條新聞 (Trending Breaking News ~50%)
+    feedConfigs.push(
       {
         url: 'https://news.google.com/rss/search?q=specialty+coffee+espresso+brewing&hl=en-US&gl=US&ceid=US:en',
         type: 'trending',
-        quota: 6,
-      },
-      {
-        url: 'https://sprudge.com/feed',
-        type: 'trending',
+        label: 'Google News (Specialty Coffee)',
         quota: 5,
       },
-      {
-        url: 'https://dailycoffeenews.com/feed',
-        type: 'trending',
-        quota: 5,
-      },
-      // 軌道 2：當日主題深入專題 (Topic News ~50%)
       {
         url: `https://news.google.com/rss/search?q=${encodeURIComponent(currentTopic.newsQuery)}&hl=en-US&gl=US&ceid=US:en`,
         type: 'topic',
-        quota: 7,
-      },
-    ];
+        label: `Google News (${currentTopic.label})`,
+        quota: 6,
+      }
+    );
   } else {
     const userQuery = keywords.join(' ');
-    feedConfigs = [
+    feedConfigs.push(
       {
         url: `https://news.google.com/rss/search?q=${encodeURIComponent(userQuery)}&hl=en-US&gl=US&ceid=US:en`,
         type: 'custom',
-        quota: 8,
-      },
-      {
-        url: 'https://sprudge.com/feed',
-        type: 'custom',
+        label: 'Google News',
+        quota: 7,
+      }
+    );
+  }
+
+  // 加入使用者啟用的 RSS / Blog 端點
+  if (activeRssSources.length > 0) {
+    activeRssSources.forEach(s => {
+      feedConfigs.push({
+        url: s.endpoint,
+        type: 'rss_source',
+        label: s.label,
         quota: 5,
-      },
-      {
-        url: 'https://dailycoffeenews.com/feed',
-        type: 'custom',
-        quota: 5,
-      },
-      {
-        url: 'https://news.google.com/rss/search?q=specialty+coffee+espresso+brewing&hl=en-US&gl=US&ceid=US:en',
-        type: 'custom',
-        quota: 4,
-      },
-    ];
+      });
+    });
+  } else {
+    // 若無啟用任何 RSS 來源，退回內建 Sprudge 與 DCN
+    feedConfigs.push(
+      { url: 'https://sprudge.com/feed', type: 'rss_source', label: 'Sprudge', quota: 5 },
+      { url: 'https://dailycoffeenews.com/feed', type: 'rss_source', label: 'Daily Coffee News', quota: 5 }
+    );
   }
 
   // 平行抓取各 Feed，兼顧效率與雙軌多元性
@@ -156,6 +156,7 @@ export async function fetchCoffeeRSS(keywords, discoveryMode = false) {
         ...i,
         feedUrl: cfg.url,
         feedType: cfg.type,
+        feedLabel: cfg.label,
         topic: cfg.type === 'topic' ? currentTopic?.label : null,
       }));
     } catch (err) {

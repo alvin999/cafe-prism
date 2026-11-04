@@ -376,6 +376,8 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
 
   const isDirty = snapshot ? !areSettingsEqual(s, snapshot) : false;
 
+  const [customSources, setCustomSources] = useState(() => Storage.getCustomSources());
+  const [newSource, setNewSource] = useState({ type: 'rss', label: '', endpoint: '' });
   const [saved, setSaved] = useState(false);
   const [testMsg, setTestMsg] = useState('');
   const [testing, setTesting] = useState(false);
@@ -1153,6 +1155,179 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
               )}
             </div>
           ))}
+        </div>
+
+        {/* ─── Custom Sources Console ─── */}
+        <div style={{
+          marginTop: '24px',
+          padding: '18px 20px',
+          background: 'var(--prism-bg-recessed)',
+          borderRadius: 'var(--prism-radius-lg)',
+          border: '1px solid var(--prism-border-subtle)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <div>
+            <div style={{
+              fontSize: '13px',
+              fontWeight: 650,
+              color: 'var(--prism-text-primary)',
+              fontFamily: 'var(--prism-font-display)',
+              marginBottom: '4px'
+            }}>
+              {t.settings.customSourcesSection || '自訂情報來源管理控制台'}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--prism-text-dim)' }}>
+              {t.settings.customSourcesHint || '動態管理自訂 RSS 專欄訂閱與 Subreddit 社群情報來源'}
+            </div>
+          </div>
+
+          {/* Sources List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {customSources.map((source) => (
+              <div
+                key={source.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  background: 'var(--prism-bg-surface)',
+                  borderRadius: 'var(--prism-radius-md)',
+                  border: '1px solid var(--prism-border-subtle)',
+                  gap: '12px',
+                  flexWrap: 'wrap'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: '220px', flex: 1 }}>
+                  <span className={`prism-badge ${source.type === 'reddit' ? 'prism-badge-amber' : 'prism-badge-ghost'}`} style={{ fontSize: '10px', textTransform: 'uppercase' }}>
+                    {source.type === 'reddit' ? 'Reddit 💬' : 'RSS 📰'}
+                  </span>
+                  <span className="prism-badge" style={{
+                    fontSize: '9.5px',
+                    background: source.isBuiltin ? 'rgba(82, 168, 114, 0.1)' : 'rgba(100, 148, 212, 0.1)',
+                    color: source.isBuiltin ? 'var(--prism-success)' : 'var(--prism-info)',
+                    border: `1px solid ${source.isBuiltin ? 'var(--prism-success-border)' : 'var(--prism-info-border)'}`
+                  }}>
+                    {source.isBuiltin ? (t.settings.builtinBadge || '內建') : (t.settings.customBadge || '自訂')}
+                  </span>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 550, color: 'var(--prism-text-primary)' }}>
+                      {source.label}
+                    </div>
+                    <div style={{ fontSize: '11px', fontFamily: 'var(--prism-font-mono)', color: 'var(--prism-text-dim)' }}>
+                      {source.endpoint}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    type="button"
+                    className={`prism-toggle ${source.enabled ? 'is-active' : ''}`}
+                    onClick={() => {
+                      const next = customSources.map(cs => cs.id === source.id ? { ...cs, enabled: !cs.enabled } : cs);
+                      setCustomSources(next);
+                      Storage.saveCustomSources(next);
+                    }}
+                    title={source.enabled ? 'Enabled' : 'Disabled'}
+                  >
+                    <span className="prism-toggle-thumb" />
+                  </button>
+
+                  {!source.isBuiltin && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(t.settings.deleteSourceConfirm || 'Are you sure?')) {
+                          const next = customSources.filter(cs => cs.id !== source.id);
+                          setCustomSources(next);
+                          Storage.saveCustomSources(next);
+                        }
+                      }}
+                      className="prism-btn prism-btn-danger prism-btn-sm"
+                      style={{ padding: '4px 8px', fontSize: '11px' }}
+                      title="Delete Source"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add Source Form */}
+          <div style={{
+            padding: '14px',
+            background: 'var(--prism-bg-surface-elevated)',
+            borderRadius: 'var(--prism-radius-md)',
+            border: '1px dashed var(--prism-border-medium)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <div style={{ fontSize: '11.5px', fontFamily: 'var(--prism-font-mono)', color: 'var(--prism-amber-400)', fontWeight: 600 }}>
+              + {t.settings.addSource}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <select
+                value={newSource.type}
+                onChange={e => setNewSource(prev => ({ ...prev, type: e.target.value }))}
+                className="prism-select"
+                style={{ fontSize: '12px', padding: '6px 10px', minWidth: '120px' }}
+              >
+                <option value="rss">RSS Feed 📰</option>
+                <option value="reddit">Subreddit 💬</option>
+              </select>
+
+              <input
+                type="text"
+                placeholder={t.settings.sourceLabelPlaceholder}
+                value={newSource.label}
+                onChange={e => setNewSource(prev => ({ ...prev, label: e.target.value }))}
+                className="prism-input"
+                style={{ flex: 1, minWidth: '160px', fontSize: '12.5px' }}
+              />
+
+              <input
+                type="text"
+                placeholder={newSource.type === 'reddit' ? t.settings.sourceEndpointRedditPlaceholder : t.settings.sourceEndpointRssPlaceholder}
+                value={newSource.endpoint}
+                onChange={e => setNewSource(prev => ({ ...prev, endpoint: e.target.value }))}
+                className="prism-input"
+                style={{ flex: 2, minWidth: '200px', fontSize: '12.5px', fontFamily: 'var(--prism-font-mono)' }}
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  const lbl = newSource.label.trim();
+                  const ep = newSource.endpoint.trim();
+                  if (!lbl || !ep) return;
+                  const newEntry = {
+                    id: `source_${Date.now()}`,
+                    type: newSource.type,
+                    label: lbl,
+                    endpoint: ep,
+                    enabled: true,
+                    isBuiltin: false,
+                  };
+                  const next = [...customSources, newEntry];
+                  setCustomSources(next);
+                  Storage.saveCustomSources(next);
+                  setNewSource({ type: 'rss', label: '', endpoint: '' });
+                }}
+                disabled={!newSource.label.trim() || !newSource.endpoint.trim()}
+                className="prism-btn prism-btn-primary prism-btn-sm"
+                style={{ fontSize: '12px' }}
+              >
+                + {t.settings.addSource}
+              </button>
+            </div>
+          </div>
         </div>
       </Section>
 

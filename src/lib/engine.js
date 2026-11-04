@@ -1,6 +1,6 @@
 import { runResearchPipeline } from './pipeline/core.js';
 import { sendTelegram, formatTelegramMessage, DEFAULT_TELEGRAM_TEMPLATE } from './utils/telegram.js';
-import { Storage } from './utils/storage.js';
+import { Storage, DEFAULT_CUSTOM_SOURCES } from './utils/storage.js';
 import {
   fetchOllamaModels,
   fetchGroqModels,
@@ -30,6 +30,7 @@ export {
   formatTelegramMessage,
   DEFAULT_TELEGRAM_TEMPLATE,
   Storage,
+  DEFAULT_CUSTOM_SOURCES,
   fetchOllamaModels,
   fetchGroqModels,
   fetchOpenAIModels,

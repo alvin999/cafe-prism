@@ -5,6 +5,14 @@ import {
   decryptWithDeviceKey,
 } from './crypto.js';
 
+// ─── Default Builtin Sources ─────────────────────────────────────────────
+export const DEFAULT_CUSTOM_SOURCES = [
+  { id: 'builtin_rss_sprudge', type: 'rss', label: 'Sprudge Coffee', endpoint: 'https://sprudge.com/feed', enabled: true, isBuiltin: true },
+  { id: 'builtin_rss_dcn', type: 'rss', label: 'Daily Coffee News', endpoint: 'https://dailycoffeenews.com/feed', enabled: true, isBuiltin: true },
+  { id: 'builtin_reddit_coffee', type: 'reddit', label: 'r/Coffee', endpoint: 'Coffee', enabled: true, isBuiltin: true },
+  { id: 'builtin_reddit_espresso', type: 'reddit', label: 'r/espresso', endpoint: 'espresso', enabled: true, isBuiltin: true },
+];
+
 // ─── In-memory session key & password cache (僅存放於當前分頁 RAM，不寫入硬碟) ───
 let sessionDecryptedKeys = null; // { apiKey: string, apiKeys: object, botToken: string, scholarApiKey: string }
 let sessionPassword = null;
@@ -403,6 +411,27 @@ export const Storage = {
     try { return JSON.parse(localStorage.getItem('cr_schedule_meta') || '{}'); } catch { return {}; }
   },
   saveScheduleMeta: (meta) => localStorage.setItem('cr_schedule_meta', JSON.stringify(meta)),
+
+  getCustomSources: () => {
+    try {
+      const raw = localStorage.getItem('cr_custom_sources');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { }
+    try {
+      localStorage.setItem('cr_custom_sources', JSON.stringify(DEFAULT_CUSTOM_SOURCES));
+    } catch { }
+    return [...DEFAULT_CUSTOM_SOURCES];
+  },
+  saveCustomSources: (sources) => {
+    if (!Array.isArray(sources)) return;
+    localStorage.setItem('cr_custom_sources', JSON.stringify(sources));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('cr:sources-updated'));
+    }
+  },
 
   exportBackup: () => {
     const rawSettings = Storage.getRawSettings();

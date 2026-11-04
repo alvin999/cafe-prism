@@ -2,11 +2,20 @@ import { fetchFromProxy, fetchWithTimeout } from '../api/proxy.js';
 import { parseRSS } from './rss.js';
 import { getDailyDiscoveryTopic } from '../pipeline/topics.js';
 import { sanitizeHtmlText } from '../utils/sanitize.js';
+import { Storage } from '../utils/storage.js';
 
 // ─── Reddit fetcher ──────────────────────────────────────────────────────────
 export async function fetchReddit(keywords, discoveryMode = false) {
   const isDiscovery = discoveryMode || keywords.length === 0;
   const currentTopic = isDiscovery ? getDailyDiscoveryTopic() : null;
+
+  // 動態取得使用者啟用之 Subreddit 清單
+  const allCustom = Storage.getCustomSources ? Storage.getCustomSources() : [];
+  const activeRedditSources = allCustom.filter(s => s.type === 'reddit' && s.enabled);
+  const subreddits = activeRedditSources.length > 0
+    ? activeRedditSources.map(s => s.endpoint.replace(/^r\//, '').trim()).filter(Boolean)
+    : ['Coffee', 'espresso'];
+  const multiSub = subreddits.join('+');
 
   let jsonError = null;
 
@@ -15,9 +24,9 @@ export async function fetchReddit(keywords, discoveryMode = false) {
     if (isDiscovery) {
       const endpoints = [
         // 軌道 1：今日爆款發燒文 (Hot Discussions ~50%)
-        { path: `/r/Coffee+espresso/hot.json?limit=10`, type: 'hot' },
+        { path: `/r/${multiSub}/hot.json?limit=10`, type: 'hot' },
         // 軌道 2：當日主題深入討論 (Topic Discussions ~50%)
-        { path: `/r/Coffee+espresso/search.json?q=${encodeURIComponent(currentTopic.redditQuery)}&sort=relevance&limit=10&restrict_sr=1`, type: 'topic' },
+        { path: `/r/${multiSub}/search.json?q=${encodeURIComponent(currentTopic.redditQuery)}&sort=relevance&limit=10&restrict_sr=1`, type: 'topic' },
       ];
 
       const fetchPromises = endpoints.map(async (ep) => {
@@ -68,7 +77,7 @@ export async function fetchReddit(keywords, discoveryMode = false) {
     } else {
       // 自訂關鍵字搜尋
       const query = encodeURIComponent(keywords.join(' '));
-      const endpoint = `/r/Coffee+espresso/search.json?q=${query}&sort=new&limit=15&restrict_sr=1`;
+      const endpoint = `/r/${multiSub}/search.json?q=${query}&sort=new&limit=15&restrict_sr=1`;
       const data = await fetchFromProxy('/api-reddit', endpoint, true, 7000);
       if (data?.data?.children && data.data.children.length > 0) {
         return data.data.children
@@ -91,7 +100,8 @@ export async function fetchReddit(keywords, discoveryMode = false) {
   // 2. 備援策略 1：若 JSON 失敗，改抓取 Reddit RSS Feed（設定 7 秒逾時）
   let rssError = null;
   try {
-    const rssTarget = 'https://www.reddit.com/r/Coffee/.rss?sort=hot';
+    const primarySub = subreddits[0] || 'Coffee';
+    const rssTarget = `https://www.reddit.com/r/${primarySub}/.rss?sort=hot`;
     const res = await fetchWithTimeout(`/api-feed?url=${encodeURIComponent(rssTarget)}`, {}, 7000);
     if (res.ok) {
       const xml = await res.text();
