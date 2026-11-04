@@ -2,10 +2,10 @@ import { useState, createContext, useContext, useEffect, useRef, lazy, Suspense 
 import { translations } from './i18n/translations.js';
 import { Storage } from './lib/engine.js';
 import { useGlobalScheduler } from './hooks/useGlobalScheduler.js';
-import Dashboard from './pages/Dashboard.jsx';
 import UnsavedModal from './components/UnsavedModal.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
 const Settings = lazy(() => import('./pages/Settings.jsx'));
 const Schedule = lazy(() => import('./pages/Schedule.jsx'));
 const History = lazy(() => import('./pages/History.jsx'));
@@ -13,33 +13,71 @@ const History = lazy(() => import('./pages/History.jsx'));
 export const LangContext = createContext({ lang: 'zh', t: translations.zh, setLang: () => { } });
 export const useLang = () => useContext(LangContext);
 
+/* ─── Geometric Prism Brand Mark & Crisp 1.5px Navigation Icons ─────────── */
+const BrandPrismLogo = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+    <defs>
+      <linearGradient id="prism-gold-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#ebd8ab" />
+        <stop offset="50%" stopColor="#c8a060" />
+        <stop offset="100%" stopColor="#90642b" />
+      </linearGradient>
+    </defs>
+    <polygon
+      points="12 2 22 19 2 19"
+      stroke="url(#prism-gold-grad)"
+      strokeWidth="1.75"
+      strokeLinejoin="round"
+      fill="rgba(200, 160, 96, 0.1)"
+    />
+    <path
+      d="M12 2L12 19"
+      stroke="url(#prism-gold-grad)"
+      strokeWidth="1.3"
+      strokeOpacity="0.65"
+    />
+    <path
+      d="M7 11.5L17 14.5"
+      stroke="#ebd8ab"
+      strokeWidth="1.2"
+      strokeOpacity="0.45"
+    />
+  </svg>
+);
+
 const NAV_ICONS = {
   dashboard: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9" />
-      <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor" opacity=".5" />
-      <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".5" />
-      <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor" opacity=".9" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="9" rx="1.5" />
+      <rect x="14" y="3" width="7" height="5" rx="1.5" />
+      <rect x="14" y="12" width="7" height="9" rx="1.5" />
+      <rect x="3" y="16" width="7" height="5" rx="1.5" />
     </svg>
   ),
   settings: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="4" x2="4" y1="21" y2="14" />
+      <line x1="4" x2="4" y1="10" y2="3" />
+      <line x1="12" x2="12" y1="21" y2="12" />
+      <line x1="12" x2="12" y1="8" y2="3" />
+      <line x1="20" x2="20" y1="21" y2="16" />
+      <line x1="20" x2="20" y1="12" y2="3" />
+      <line x1="2" x2="6" y1="14" y2="14" />
+      <line x1="10" x2="14" y1="8" y2="8" />
+      <line x1="18" x2="22" y1="16" y2="16" />
     </svg>
   ),
   schedule: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M5 1v2M11 1v2M1 6h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M8 9v3l2 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <polyline points="12 7 12 12 15.5 14" />
     </svg>
   ),
   history: (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <path d="M2 8a6 6 0 1 0 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M2 2v6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M8 5v3l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M12 7v5l3.5 2" />
     </svg>
   ),
 };
@@ -48,12 +86,10 @@ const VALID_PAGES = ['dashboard', 'settings', 'schedule', 'history'];
 
 const getPageFromUrl = () => {
   if (typeof window === 'undefined') return 'dashboard';
-  // 1. 優先相容舊版 Hash (例如 #settings, #dashboard)
   const hash = window.location.hash.replace(/^#\/?/, '').toLowerCase();
   if (VALID_PAGES.includes(hash)) {
     return hash;
   }
-  // 2. 檢查 HTML5 pathname (例如 /settings, /schedule, /history, /dashboard)
   const path = window.location.pathname.replace(/^\/|\/$/g, '').toLowerCase();
   if (VALID_PAGES.includes(path)) {
     return path;
@@ -83,8 +119,6 @@ export default function App() {
   };
 
   const t = translations[lang];
-
-  // 全域輕量排程生命週期管理
   const schedulerStatus = useGlobalScheduler();
 
   useEffect(() => {
@@ -92,7 +126,6 @@ export default function App() {
     Storage.saveSettings({ ...s, language: lang });
   }, [lang]);
 
-  // 初始化與舊版 Hash 向下相容規格化
   useEffect(() => {
     const currentTarget = getPageFromUrl();
     const targetPath = currentTarget === 'dashboard' ? '/' : `/${currentTarget}`;
@@ -101,7 +134,6 @@ export default function App() {
     }
   }, []);
 
-  // HTML5 History 路由監聽 (popstate 與相容 hashchange)
   useEffect(() => {
     const handleLocationChange = () => {
       const target = getPageFromUrl();
@@ -188,12 +220,24 @@ export default function App() {
             </button>
             <div
               onClick={() => handleNavClick('dashboard')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}
               title={t.nav.dashboard}
             >
-              <span style={{ fontSize: '20px' }}>🔮</span>
-              <span className="prism-header-title">CaféPrism</span>
-              <span className="prism-header-badge">Beta</span>
+              <BrandPrismLogo />
+              <span className="prism-header-title" style={{ letterSpacing: '-0.02em', fontWeight: 700 }}>
+                CaféPrism
+              </span>
+              <span
+                className="prism-header-badge"
+                style={{
+                  fontFamily: 'var(--prism-font-mono)',
+                  fontSize: '10px',
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase'
+                }}
+              >
+                BETA
+              </span>
             </div>
             {schedulerStatus.running && (
               <span className="prism-badge prism-badge-amber animate-pulse" style={{ fontSize: '11px', marginLeft: '6px' }}>
@@ -207,7 +251,17 @@ export default function App() {
           <button
             className="prism-btn prism-btn-ghost prism-btn-sm"
             onClick={() => setLang(l => l === 'zh' ? 'en' : 'zh')}
+            style={{
+              fontFamily: 'var(--prism-font-mono)',
+              fontSize: '11.5px',
+              letterSpacing: '0.04em'
+            }}
           >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+              <path d="M2 12h20" />
+            </svg>
             {t.app.switchLang}
           </button>
         </header>
@@ -235,7 +289,7 @@ export default function App() {
 
             {!isSidebarCollapsed && (
               <div className="prism-sidebar-footer">
-                <p className="prism-sidebar-footer-text" style={{ whiteSpace: 'pre-line' }}>
+                <p className="prism-sidebar-footer-text" style={{ whiteSpace: 'pre-line', fontFamily: 'var(--prism-font-mono)', fontSize: '10.5px', opacity: 0.75 }}>
                   {t.app.securityBadge}
                 </p>
               </div>
@@ -249,7 +303,7 @@ export default function App() {
                 <Suspense fallback={
                   <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--prism-text-dim)' }}>
                     <span className="animate-spin" style={{ display: 'inline-block', fontSize: '24px', marginBottom: '12px' }}>⟳</span>
-                    <p style={{ fontSize: '13px', margin: 0 }}>載入中…</p>
+                    <p style={{ fontSize: '13px', margin: 0, fontFamily: 'var(--prism-font-mono)' }}>LOADING MODULE…</p>
                   </div>
                 }>
                   <PageComponent
@@ -267,12 +321,14 @@ export default function App() {
         {/* Global Toast */}
         {schedulerStatus.toastMessage && (
           <div className="prism-toast">
-            <span>✨</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
+            </svg>
             <span>{schedulerStatus.toastMessage}</span>
           </div>
         )}
 
-        {/* Floating Unsaved Bar (Top-level Viewport Centered) */}
+        {/* Floating Unsaved Bar */}
         {page === 'settings' && hasUnsavedSettings && (
           <div className="prism-unsaved-bar">
             <div className="prism-unsaved-bar-info">
@@ -298,7 +354,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Unsaved Changes Confirmation Modal */}
         <UnsavedModal
           isOpen={showUnsavedModal}
           onStay={handleStay}

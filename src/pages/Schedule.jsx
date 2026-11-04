@@ -31,7 +31,6 @@ export default function Schedule() {
 
   const save = () => {
     Storage.saveSchedule(sched);
-    // 廣播給全域排程器即時生效
     window.dispatchEvent(new CustomEvent('cr:schedule-updated'));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -73,23 +72,51 @@ export default function Schedule() {
 
   return (
     <div className="animate-fade-in">
-      <h1 className="prism-page-title">
-        {t.schedule.title}
-      </h1>
+      {/* Editorial Header */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        marginBottom: '32px',
+        paddingBottom: '20px',
+        borderBottom: '1px solid var(--prism-border-subtle)',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        <div>
+          <div style={{
+            fontFamily: 'var(--prism-font-mono)',
+            fontSize: '10.5px',
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
+            color: 'var(--prism-amber-500)',
+            marginBottom: '6px',
+            fontWeight: 600
+          }}>
+            AUTOMATED SCHEDULER // CAFÉPRISM
+          </div>
+          <h1 className="prism-page-title" style={{ margin: 0 }}>
+            {t.schedule.title}
+          </h1>
+        </div>
+      </div>
 
-      {/* Enable Card */}
+      {/* 01 // Master Enable Card */}
       <div className="prism-card prism-card-highlight" style={{
-        marginBottom: '24px',
+        marginBottom: '28px',
+        padding: '24px 28px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px'
       }}>
         <div>
           <p style={{ margin: 0, fontSize: '15px', color: 'var(--prism-text-primary)', fontWeight: 600 }}>
             {t.schedule.enabled}
           </p>
           {nextRun ? (
-            <p style={{ margin: '6px 0 0', fontSize: '12.5px', color: 'var(--prism-amber-500)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <p style={{ margin: '6px 0 0', fontSize: '12.5px', fontFamily: 'var(--prism-font-mono)', color: 'var(--prism-amber-400)', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span>🕒</span> {t.schedule.nextRun}: <strong>{nextRun.toLocaleString(lang === 'zh' ? 'zh-TW' : 'en-US')}</strong>
             </p>
           ) : (
@@ -99,7 +126,7 @@ export default function Schedule() {
           )}
 
           {meta.lastRunTimestamp && (
-            <p style={{ margin: '4px 0 0', fontSize: '11.5px', color: 'var(--prism-text-dim)' }}>
+            <p style={{ margin: '6px 0 0', fontSize: '11.5px', fontFamily: 'var(--prism-font-mono)', color: 'var(--prism-text-dim)' }}>
               {t.schedule.lastRun}: {new Date(meta.lastRunTimestamp).toLocaleString(lang === 'zh' ? 'zh-TW' : 'en-US')}
               {meta.lastRunType === 'catch_up' && <span className="prism-badge prism-badge-amber" style={{ marginLeft: '6px', fontSize: '10px' }}>{t.schedule.catchUp}</span>}
             </p>
@@ -108,137 +135,141 @@ export default function Schedule() {
         <Toggle fieldKey="enabled" />
       </div>
 
-      {/* Frequency */}
-      <div style={{ marginBottom: '24px' }}>
-        <label style={{ display: 'block', fontSize: '13px', color: 'var(--prism-text-secondary)', marginBottom: '8px' }}>
-          {t.schedule.frequency}
-        </label>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          {['daily', 'weekly'].map(f => (
-            <button
-              key={f}
-              onClick={() => update('frequency', f)}
-              className={`prism-btn ${sched.frequency === f ? 'prism-btn-primary' : 'prism-btn-ghost'}`}
-            >
-              {f === 'daily' ? t.schedule.daily : t.schedule.weekly}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Hour */}
-      <div style={{ marginBottom: '24px' }}>
-        <label style={{ display: 'block', fontSize: '13px', color: 'var(--prism-text-secondary)', marginBottom: '8px' }}>
-          {t.schedule.time}: <strong style={{ color: 'var(--prism-amber-400)' }}>{String(sched.hour).padStart(2, '0')}:00</strong>
-        </label>
-        <input
-          type="range"
-          min="0"
-          max="23"
-          value={sched.hour}
-          onChange={e => update('hour', Number(e.target.value))}
-          style={{ width: '100%', accentColor: 'var(--prism-amber-500)', cursor: 'pointer' }}
-        />
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--prism-text-dim)', marginTop: '6px' }}>
-          <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
-        </div>
-      </div>
-
-      {/* Day of week (weekly only) */}
-      {sched.frequency === 'weekly' && (
-        <div style={{ marginBottom: '24px' }} className="animate-fade-in">
-          <label style={{ display: 'block', fontSize: '13px', color: 'var(--prism-text-secondary)', marginBottom: '8px' }}>
-            {t.schedule.day}
+      {/* 02 // Frequency & Timing Grid */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '24px',
+        marginBottom: '32px'
+      }}>
+        <div className="prism-card" style={{ padding: '22px 26px' }}>
+          <h3 className="prism-section-title">FREQUENCY</h3>
+          <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--prism-text-secondary)', marginBottom: '10px', fontWeight: 500 }}>
+            {t.schedule.frequency}
           </label>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {days.map((d, i) => (
+          <div className="prism-topic-pill-group" style={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '4px', marginBottom: '20px' }}>
+            {['daily', 'weekly'].map(f => (
               <button
-                key={i}
-                onClick={() => update('dayOfWeek', i)}
-                className={`prism-btn prism-btn-sm ${sched.dayOfWeek === i ? 'prism-btn-primary' : 'prism-btn-ghost'}`}
+                key={f}
+                type="button"
+                onClick={() => update('frequency', f)}
+                className={`prism-topic-pill-btn ${sched.frequency === f ? 'is-active' : ''}`}
+                style={{ padding: '8px 14px', fontSize: '12.5px' }}
               >
-                {d}
+                {f === 'daily' ? t.schedule.daily : t.schedule.weekly}
               </button>
             ))}
           </div>
-        </div>
-      )}
 
-      {/* Telegram notify */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '28px' }}>
-        <Toggle fieldKey="notifyTelegram" />
-        <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)' }}>
-          {t.schedule.notifyTelegram}
-        </span>
-      </div>
-
-      {/* Keyword subscriptions */}
-      <div style={{ marginBottom: '32px' }}>
-        <h2 className="prism-section-title">
-          {t.schedule.keywordsTitle}
-        </h2>
-        <p style={{ fontSize: '12.5px', color: 'var(--prism-text-muted)', marginBottom: '14px' }}>
-          {t.schedule.keywordsHint}
-        </p>
-
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
+          <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--prism-text-secondary)', marginBottom: '8px', fontWeight: 500 }}>
+            {t.schedule.time}: <strong style={{ fontFamily: 'var(--prism-font-mono)', color: 'var(--prism-amber-400)' }}>{String(sched.hour).padStart(2, '0')}:00</strong>
+          </label>
           <input
-            className="prism-input"
-            style={{ flex: 1 }}
-            value={newKeyword}
-            onChange={e => setNewKeyword(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && addKeyword()}
-            placeholder={t.schedule.keywordsPlaceholder}
+            type="range"
+            min="0"
+            max="23"
+            value={sched.hour}
+            onChange={e => update('hour', Number(e.target.value))}
+            style={{ width: '100%', accentColor: 'var(--prism-amber-500)', cursor: 'pointer' }}
           />
-          <button
-            onClick={addKeyword}
-            className="prism-btn prism-btn-primary"
-            style={{ padding: '0 20px', fontSize: '16px' }}
-          >
-            +
-          </button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontFamily: 'var(--prism-font-mono)', color: 'var(--prism-text-dim)', marginTop: '6px' }}>
+            <span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
+          </div>
+
+          {sched.frequency === 'weekly' && (
+            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--prism-border-subtle)' }} className="animate-fade-in">
+              <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--prism-text-secondary)', marginBottom: '8px', fontWeight: 500 }}>
+                {t.schedule.day}
+              </label>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {days.map((d, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => update('dayOfWeek', i)}
+                    className={`prism-btn prism-btn-sm ${sched.dayOfWeek === i ? 'prism-btn-primary' : 'prism-btn-ghost'}`}
+                    style={{ fontFamily: 'var(--prism-font-mono)', fontSize: '11px' }}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {sched.subscriptions.map(kw => (
-            <span key={kw} className="prism-badge prism-badge-amber" style={{ padding: '5px 12px', fontSize: '12px' }}>
-              {kw}
+        {/* 03 // Notification & Subscriptions */}
+        <div className="prism-card" style={{ padding: '22px 26px', display: 'flex', flexDirection: 'column' }}>
+          <h3 className="prism-section-title">DISPATCH & TOPICS</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '24px' }}>
+            <span style={{ fontSize: '13px', color: 'var(--prism-text-secondary)', fontWeight: 500 }}>
+              {t.schedule.notifyTelegram}
+            </span>
+            <Toggle fieldKey="notifyTelegram" />
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ display: 'block', fontSize: '12.5px', color: 'var(--prism-text-secondary)', marginBottom: '4px', fontWeight: 500 }}>
+              {t.schedule.keywordsTitle}
+            </label>
+            <p style={{ fontSize: '11.5px', color: 'var(--prism-text-muted)', margin: '0 0 10px' }}>
+              {t.schedule.keywordsHint}
+            </p>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <input
+                className="prism-input"
+                style={{ flex: 1, fontSize: '13px' }}
+                value={newKeyword}
+                onChange={e => setNewKeyword(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addKeyword()}
+                placeholder={t.schedule.keywordsPlaceholder}
+              />
               <button
-                onClick={() => removeKeyword(kw)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--prism-amber-700)',
-                  cursor: 'pointer',
-                  padding: '0 0 0 4px',
-                  fontSize: '14px',
-                  lineHeight: 1
-                }}
+                type="button"
+                onClick={addKeyword}
+                className="prism-btn prism-btn-primary prism-btn-sm"
               >
-                ×
+                +
               </button>
-            </span>
-          ))}
-          {sched.subscriptions.length === 0 && (
-            <span style={{ fontSize: '12.5px', color: 'var(--prism-text-dim)' }}>
-              {t.schedule.noKeywords}
-            </span>
-          )}
+            </div>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', maxHeight: '120px', overflowY: 'auto' }}>
+              {sched.subscriptions.map(kw => (
+                <span key={kw} className="prism-badge prism-badge-amber" style={{ fontSize: '11.5px', padding: '4px 10px' }}>
+                  {kw}
+                  <button
+                    type="button"
+                    onClick={() => removeKeyword(kw)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--prism-amber-600)',
+                      cursor: 'pointer',
+                      padding: '0 0 0 4px',
+                      fontSize: '13px',
+                      lineHeight: 1
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              {sched.subscriptions.length === 0 && (
+                <span style={{ fontSize: '12px', color: 'var(--prism-text-dim)', fontStyle: 'italic' }}>
+                  {t.schedule.noKeywords}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Actions */}
-      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <button
-          onClick={save}
-          className={`prism-btn ${saved ? 'prism-btn-success' : 'prism-btn-primary'}`}
-          style={{ minWidth: '130px' }}
-        >
-          {saved ? t.settings.savedSuccess : t.schedule.saveBtn}
-        </button>
-
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', justifyContent: 'flex-end', marginBottom: '48px' }}>
         {sched.enabled && (
           <button
+            type="button"
             onClick={runTestNow}
             disabled={testing}
             className="prism-btn prism-btn-ghost"
@@ -250,6 +281,14 @@ export default function Schedule() {
             )}
           </button>
         )}
+        <button
+          type="button"
+          onClick={save}
+          className={`prism-btn ${saved ? 'prism-btn-success' : 'prism-btn-primary'}`}
+          style={{ minWidth: '140px' }}
+        >
+          {saved ? t.settings.savedSuccess : t.schedule.saveBtn}
+        </button>
       </div>
     </div>
   );

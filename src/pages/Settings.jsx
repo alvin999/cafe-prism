@@ -3,25 +3,158 @@ import { useLang } from '../App.jsx';
 import { Storage, sendTelegram, fetchOllamaModels, fetchProviderModels, testLLMConnection, KeyStatus } from '../lib/engine.js';
 import UnlockModal from '../components/UnlockModal.jsx';
 
-function Section({ title, children }) {
+/* ─── Precision 1.5px SVG Icons for Settings Console ───────────────────── */
+const SettingsIcons = {
+  Shield: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  ),
+  Lock: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  ),
+  Unlock: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+    </svg>
+  ),
+  Key: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="7.5" cy="15.5" r="5.5" />
+      <path d="m21 2-9.6 9.6" />
+      <path d="m15.5 7.5 3 3L22 7l-3-3" />
+    </svg>
+  ),
+  FileText: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+      <path d="M10 9H8" />
+      <path d="M16 13H8" />
+      <path d="M16 17H8" />
+    </svg>
+  ),
+  Eye: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+  EyeOff: () => (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+      <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+      <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+      <line x1="2" x2="22" y1="2" y2="22" />
+    </svg>
+  ),
+  Zap: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  ),
+  Download: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" x2="12" y1="15" y2="3" />
+    </svg>
+  ),
+  Upload: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" x2="12" y1="3" y2="15" />
+    </svg>
+  ),
+  Refresh: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+      <path d="M16 16h5v5" />
+    </svg>
+  )
+};
+
+/* ─── Two-Column Architectural Section Wrapper ─────────────────────────── */
+function Section({ index, eyebrow, title, description, children }) {
   return (
-    <div style={{ marginBottom: '32px' }}>
-      <h2 className="prism-section-title">
-        {title}
-      </h2>
-      {children}
-    </div>
+    <section
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+        gap: '24px 36px',
+        paddingBottom: '36px',
+        marginBottom: '36px',
+        borderBottom: '1px solid var(--prism-border-subtle)',
+        alignItems: 'start'
+      }}
+    >
+      {/* Left Meta Column */}
+      <div style={{ maxWidth: '340px' }}>
+        <span className="prism-section-eyebrow">
+          {index} // {eyebrow}
+        </span>
+        <h2 style={{
+          margin: '4px 0 10px',
+          fontFamily: 'var(--prism-font-display)',
+          fontSize: '18.5px',
+          fontWeight: 650,
+          color: 'var(--prism-text-primary)',
+          letterSpacing: '-0.015em'
+        }}>
+          {title}
+        </h2>
+        {description && (
+          <p style={{
+            margin: 0,
+            fontSize: '12.5px',
+            color: 'var(--prism-text-muted)',
+            lineHeight: 1.65
+          }}>
+            {description}
+          </p>
+        )}
+      </div>
+
+      {/* Right Control Surface Card */}
+      <div className="prism-card" style={{ padding: '24px 28px', gridColumn: 'span 1' }}>
+        {children}
+      </div>
+    </section>
   );
 }
 
-function Field({ label, hint, children }) {
+function Field({ label, hint, children, style }) {
   return (
-    <div style={{ marginBottom: '18px' }}>
-      <label style={{ display: 'block', fontSize: '13px', color: 'var(--prism-text-secondary)', marginBottom: '6px', fontWeight: 500 }}>
+    <div style={{ marginBottom: '18px', ...style }}>
+      <label style={{
+        display: 'block',
+        fontSize: '12.5px',
+        color: 'var(--prism-text-secondary)',
+        marginBottom: '7px',
+        fontWeight: 500,
+        letterSpacing: '0.01em'
+      }}>
         {label}
       </label>
       {children}
-      {hint && <p style={{ fontSize: '11.5px', color: 'var(--prism-text-muted)', margin: '5px 0 0', lineHeight: 1.4 }}>{hint}</p>}
+      {hint && (
+        <p style={{
+          fontSize: '11.5px',
+          color: 'var(--prism-text-muted)',
+          margin: '6px 0 0',
+          lineHeight: 1.5
+        }}>
+          {hint}
+        </p>
+      )}
     </div>
   );
 }
@@ -68,9 +201,11 @@ function PasswordManageModal({ isOpen, mode, onClose, onSuccess, t }) {
   return (
     <div className="prism-modal-backdrop" onClick={onClose}>
       <div className="prism-modal-box" onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-          <span style={{ fontSize: '22px' }}>{mode === 'set' ? '🔒' : '🔑'}</span>
-          <h3 style={{ margin: 0, fontSize: '17px', color: 'var(--prism-text-primary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
+          <span style={{ color: 'var(--prism-amber-400)', display: 'flex' }}>
+            {mode === 'set' ? <SettingsIcons.Lock /> : <SettingsIcons.Key />}
+          </span>
+          <h3 style={{ margin: 0, fontSize: '17px', color: 'var(--prism-text-primary)', fontWeight: 600 }}>
             {mode === 'set' ? t.settings.setPasswordTitle : t.settings.changePasswordTitle}
           </h3>
         </div>
@@ -84,7 +219,6 @@ function PasswordManageModal({ isOpen, mode, onClose, onSuccess, t }) {
               <input
                 type="password"
                 className="prism-input"
-                style={{ width: '100%' }}
                 value={oldPassword}
                 onChange={e => setOldPassword(e.target.value)}
                 autoFocus
@@ -99,7 +233,6 @@ function PasswordManageModal({ isOpen, mode, onClose, onSuccess, t }) {
             <input
               type="password"
               className="prism-input"
-              style={{ width: '100%' }}
               value={newPassword}
               onChange={e => setNewPassword(e.target.value)}
               autoFocus={mode === 'set'}
@@ -113,7 +246,6 @@ function PasswordManageModal({ isOpen, mode, onClose, onSuccess, t }) {
             <input
               type="password"
               className="prism-input"
-              style={{ width: '100%' }}
               value={confirmPassword}
               onChange={e => setConfirmPassword(e.target.value)}
             />
@@ -223,7 +355,7 @@ const areSettingsEqual = (a, b) => {
 };
 
 export default function Settings({ onDirtyChange, saveRef, discardRef }) {
-  const { t, lang } = useLang();
+  const { t } = useLang();
   const [s, setS] = useState(() => normalizeSettings(Storage.getSettings()));
   const [snapshot, setSnapshot] = useState(() => normalizeSettings(Storage.getSettings()));
 
@@ -238,16 +370,15 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
   const [loadingModels, setLoadingModels] = useState(false);
   const [cloudModels, setCloudModels] = useState([]);
   const [fetchingCloud, setFetchingCloud] = useState(false);
-  const [fetchStatus, setFetchStatus] = useState('idle'); // 'idle' | 'success' | 'error'
+  const [fetchStatus, setFetchStatus] = useState('idle');
   const [fetchErrorDetail, setFetchErrorDetail] = useState('');
   const [testingLLM, setTestingLLM] = useState(false);
   const [llmTestResult, setLlmTestResult] = useState(null);
 
-  // 密碼保護與安全模式狀態管理
   const [securityMode, setSecurityMode] = useState(() => Storage.getSecurityMode());
   const [isProtected, setIsProtected] = useState(() => Storage.hasPasswordProtection());
   const [isUnlocked, setIsUnlocked] = useState(() => Storage.isUnlocked());
-  const [modalType, setModalType] = useState(null); // 'set' | 'change' | 'unlock' | null
+  const [modalType, setModalType] = useState(null);
   const [showApiKey, setShowApiKey] = useState(false);
   const [securityMsg, setSecurityMsg] = useState('');
 
@@ -456,10 +587,6 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
     }
   };
 
-  const handleDisableProtection = () => {
-    handleSwitchToPlaintext();
-  };
-
   const handleLock = () => {
     Storage.lock();
     syncSettings();
@@ -495,63 +622,62 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
 
   return (
     <div className="animate-fade-in">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        <h1 className="prism-page-title" style={{ margin: 0 }}>
-          {t.settings.title}
-        </h1>
-        {isDirty && (
-          <span className="prism-badge prism-badge-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-            <span className="prism-unsaved-dot" style={{ width: '6px', height: '6px' }} />
-            {t.settings.unsavedChangesTitle}
-          </span>
-        )}
-      </div>
-
-      {/* Security & Privacy Notice Banner */}
-      <div
-        className="prism-card"
-        style={{
-          marginBottom: '28px',
-          background: 'linear-gradient(135deg, rgba(200, 160, 96, 0.07) 0%, rgba(20, 18, 15, 0.6) 100%)',
-          border: '1px solid var(--prism-border-accent)',
-          padding: '18px 22px',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
-          <span style={{ fontSize: '22px', lineHeight: 1 }}>🛡️</span>
-          <div style={{ flex: 1 }}>
-            <h4 style={{ margin: '0 0 6px', fontSize: '14px', color: 'var(--prism-amber-400)', fontWeight: 600 }}>
-              {t.settings.securityNoticeTitle}
-            </h4>
-            <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--prism-text-secondary)', lineHeight: 1.55 }}>
-              {t.settings.securityNoticeDesc}
-            </p>
+      {/* ─── Editorial Page Header ─────────────────────────────────────── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'space-between',
+        marginBottom: '32px',
+        paddingBottom: '20px',
+        borderBottom: '1px solid var(--prism-border-subtle)',
+        flexWrap: 'wrap',
+        gap: '16px'
+      }}>
+        <div>
+          <div style={{
+            fontFamily: 'var(--prism-font-mono)',
+            fontSize: '10.5px',
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
+            color: 'var(--prism-amber-500)',
+            marginBottom: '6px',
+            fontWeight: 600
+          }}>
+            SYSTEM CONFIGURATION // CAFÉPRISM
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <h1 className="prism-page-title" style={{ margin: 0 }}>
+              {t.settings.title}
+            </h1>
+            {isDirty && (
+              <span className="prism-badge prism-badge-amber" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span className="prism-unsaved-dot" style={{ width: '6px', height: '6px' }} />
+                {t.settings.unsavedChangesTitle}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Key Storage & Encryption Mode Section */}
-      <Section title={t.settings.securityStorageSection || t.settings.passwordProtection}>
-        <div
-          className="prism-card"
-          style={{
-            padding: '20px',
-            marginBottom: '24px',
-            background: 'var(--prism-bg-glass-card)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '16px',
-          }}
-        >
-          {/* Status Header */}
+      {/* ─── 01 // Security & Encryption Vault ─────────────────────────── */}
+      <Section
+        index="01"
+        eyebrow="SECURITY VAULT"
+        title={t.settings.securityStorageSection || t.settings.passwordProtection}
+        description={t.settings.securityNoticeDesc}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--prism-text-primary)' }}>
-                {t.settings.securityStorageSection || 'API 金鑰儲存防護模式'}
+              <span style={{ color: 'var(--prism-amber-400)', display: 'inline-flex' }}>
+                <SettingsIcons.Shield />
+              </span>
+              <span style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--prism-text-primary)' }}>
+                {t.settings.securityNoticeTitle}
               </span>
               {securityMode === 'transparent' && (
-                <span className="prism-badge prism-badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  <span>🛡️</span> {t.settings.transparentActiveBadge || '裝置已加密'}
+                <span className="prism-badge prism-badge-success">
+                  ✓ {t.settings.transparentActiveBadge || '裝置已加密'}
                 </span>
               )}
               {securityMode === 'password' && (
@@ -577,25 +703,25 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                   <button
                     type="button"
                     onClick={() => setModalType('unlock')}
-                    className="prism-btn prism-btn-primary"
+                    className="prism-btn prism-btn-primary prism-btn-sm"
                   >
-                    🔓 {t.settings.unlockBtn}
+                    <SettingsIcons.Unlock /> {t.settings.unlockBtn}
                   </button>
                 ) : (
                   <>
                     <button
                       type="button"
                       onClick={handleLock}
-                      className="prism-btn prism-btn-ghost"
+                      className="prism-btn prism-btn-ghost prism-btn-sm"
                     >
-                      🔒 {t.settings.lockNowBtn}
+                      <SettingsIcons.Lock /> {t.settings.lockNowBtn}
                     </button>
                     <button
                       type="button"
                       onClick={() => setModalType('change')}
-                      className="prism-btn prism-btn-ghost"
+                      className="prism-btn prism-btn-ghost prism-btn-sm"
                     >
-                      🔑 {t.settings.changePasswordBtn}
+                      <SettingsIcons.Key /> {t.settings.changePasswordBtn}
                     </button>
                   </>
                 )}
@@ -604,121 +730,96 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
           </div>
 
           {/* 3 Modes Option Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
-            {/* 1. Device Transparent Mode (Recommended) */}
-            <div
-              onClick={() => {
-                if (securityMode !== 'transparent') handleSwitchToTransparent();
-              }}
-              style={{
-                padding: '14px 16px',
-                borderRadius: '8px',
-                cursor: securityMode === 'transparent' ? 'default' : 'pointer',
-                border: securityMode === 'transparent' ? '1px solid var(--prism-amber-400)' : '1px solid var(--prism-border-glass)',
-                background: securityMode === 'transparent' ? 'rgba(200, 160, 96, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: securityMode === 'transparent' ? 'var(--prism-amber-400)' : 'var(--prism-text-primary)' }}>
-                  🛡️ {t.settings.securityModeTransparent}
-                </span>
-                <input
-                  type="radio"
-                  name="securityMode"
-                  checked={securityMode === 'transparent'}
-                  onChange={handleSwitchToTransparent}
-                  style={{ accentColor: 'var(--prism-amber-400)', cursor: 'pointer' }}
-                />
-              </div>
-              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--prism-text-muted)', lineHeight: 1.45 }}>
-                {t.settings.securityModeTransparentDesc}
-              </p>
-            </div>
-
-            {/* 2. Plaintext Mode */}
-            <div
-              onClick={() => {
-                if (securityMode !== 'plaintext') handleSwitchToPlaintext();
-              }}
-              style={{
-                padding: '14px 16px',
-                borderRadius: '8px',
-                cursor: securityMode === 'plaintext' ? 'default' : 'pointer',
-                border: securityMode === 'plaintext' ? '1px solid var(--prism-amber-400)' : '1px solid var(--prism-border-glass)',
-                background: securityMode === 'plaintext' ? 'rgba(200, 160, 96, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: securityMode === 'plaintext' ? 'var(--prism-amber-400)' : 'var(--prism-text-primary)' }}>
-                  📄 {t.settings.securityModePlaintext}
-                </span>
-                <input
-                  type="radio"
-                  name="securityMode"
-                  checked={securityMode === 'plaintext'}
-                  onChange={handleSwitchToPlaintext}
-                  style={{ accentColor: 'var(--prism-amber-400)', cursor: 'pointer' }}
-                />
-              </div>
-              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--prism-text-muted)', lineHeight: 1.45 }}>
-                {t.settings.securityModePlaintextDesc}
-              </p>
-            </div>
-
-            {/* 3. Password Protection Mode */}
-            <div
-              onClick={() => {
-                if (securityMode !== 'password') setModalType('set');
-              }}
-              style={{
-                padding: '14px 16px',
-                borderRadius: '8px',
-                cursor: securityMode === 'password' ? 'default' : 'pointer',
-                border: securityMode === 'password' ? '1px solid var(--prism-amber-400)' : '1px solid var(--prism-border-glass)',
-                background: securityMode === 'password' ? 'rgba(200, 160, 96, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: securityMode === 'password' ? 'var(--prism-amber-400)' : 'var(--prism-text-primary)' }}>
-                  🔐 {t.settings.securityModePassword}
-                </span>
-                <input
-                  type="radio"
-                  name="securityMode"
-                  checked={securityMode === 'password'}
-                  onChange={() => {
-                    if (securityMode !== 'password') setModalType('set');
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+            {[
+              {
+                id: 'transparent',
+                icon: <SettingsIcons.Shield />,
+                title: t.settings.securityModeTransparent,
+                desc: t.settings.securityModeTransparentDesc,
+                onSelect: handleSwitchToTransparent
+              },
+              {
+                id: 'plaintext',
+                icon: <SettingsIcons.FileText />,
+                title: t.settings.securityModePlaintext,
+                desc: t.settings.securityModePlaintextDesc,
+                onSelect: handleSwitchToPlaintext
+              },
+              {
+                id: 'password',
+                icon: <SettingsIcons.Lock />,
+                title: t.settings.securityModePassword,
+                desc: t.settings.securityModePasswordDesc,
+                onSelect: () => setModalType('set')
+              }
+            ].map(mode => {
+              const active = securityMode === mode.id;
+              return (
+                <div
+                  key={mode.id}
+                  onClick={() => { if (!active) mode.onSelect(); }}
+                  style={{
+                    padding: '14px 16px',
+                    borderRadius: 'var(--prism-radius-md)',
+                    cursor: active ? 'default' : 'pointer',
+                    border: active ? '1px solid var(--prism-amber-500)' : '1px solid var(--prism-border-subtle)',
+                    background: active ? 'rgba(200, 160, 96, 0.08)' : 'var(--prism-bg-recessed)',
+                    transition: 'all var(--prism-transition-fast)',
                   }}
-                  style={{ accentColor: 'var(--prism-amber-400)', cursor: 'pointer' }}
-                />
-              </div>
-              <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--prism-text-muted)', lineHeight: 1.45 }}>
-                {t.settings.securityModePasswordDesc}
-              </p>
-            </div>
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      color: active ? 'var(--prism-amber-400)' : 'var(--prism-text-primary)'
+                    }}>
+                      {mode.icon}
+                      {mode.title}
+                    </span>
+                    <input
+                      type="radio"
+                      name="securityMode"
+                      checked={active}
+                      onChange={() => { if (!active) mode.onSelect(); }}
+                      style={{ accentColor: 'var(--prism-amber-400)', cursor: 'pointer' }}
+                    />
+                  </div>
+                  <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--prism-text-muted)', lineHeight: 1.5 }}>
+                    {mode.desc}
+                  </p>
+                </div>
+              );
+            })}
           </div>
 
           {securityMsg && (
-            <p style={{ margin: 0, fontSize: '12px', color: securityMsg.startsWith('✓') ? 'var(--prism-success)' : 'var(--prism-danger)' }}>
+            <p style={{ margin: 0, fontSize: '12px', fontFamily: 'var(--prism-font-mono)', color: securityMsg.startsWith('✓') ? 'var(--prism-success)' : 'var(--prism-danger)' }}>
               {securityMsg}
             </p>
           )}
         </div>
       </Section>
 
-      {/* AI Model */}
-      <Section title={t.settings.modelSection}>
+      {/* ─── 02 // AI Inference Engine ─────────────────────────────────── */}
+      <Section
+        index="02"
+        eyebrow="INFERENCE ENGINE"
+        title={t.settings.modelSection}
+        description={t.settings.apiKeyHint}
+      >
         <Field label={t.settings.modelType}>
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div className="prism-topic-pill-group" style={{ width: '100%', display: 'grid', gridTemplateColumns: '1fr 1fr', padding: '4px' }}>
             {['local', 'cloud'].map(type => (
               <button
                 key={type}
+                type="button"
                 onClick={() => update('modelType', type)}
-                className={`prism-btn ${s.modelType === type ? 'prism-btn-primary' : 'prism-btn-ghost'}`}
-                style={{ flex: 1 }}
+                className={`prism-topic-pill-btn ${s.modelType === type ? 'is-active' : ''}`}
+                style={{ padding: '8px 14px', fontSize: '12.5px' }}
               >
                 {type === 'local' ? t.settings.local : t.settings.cloud}
               </button>
@@ -731,6 +832,7 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
             <Field label={t.settings.ollamaUrl}>
               <input
                 className="prism-input"
+                style={{ fontFamily: 'var(--prism-font-mono)' }}
                 value={s.ollamaUrl}
                 onChange={e => update('ollamaUrl', e.target.value)}
               />
@@ -758,77 +860,81 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                   onClick={refreshModels}
                   disabled={loadingModels}
                   className="prism-btn prism-btn-ghost"
-                  style={{ padding: '0 16px' }}
+                  style={{ padding: '0 14px' }}
                   title={t.settings.loadingModels}
                 >
-                  {loadingModels ? '...' : '↻'}
+                  {loadingModels ? '...' : <SettingsIcons.Refresh />}
                 </button>
               </div>
             </Field>
           </>
         ) : (
           <>
-            <Field label={t.settings.provider}>
-              <select
-                className="prism-select"
-                value={s.provider}
-                onChange={e => {
-                  const p = e.target.value;
-                  const targetKey = (s.apiKeys && s.apiKeys[p]) || '';
-                  setS(prev => ({
-                    ...prev,
-                    provider: p,
-                    apiKey: targetKey,
-                    model: FALLBACK_MODELS[p] ? FALLBACK_MODELS[p][0].id : prev.model,
-                  }));
-                  setCloudModels([]);
-                  setFetchStatus('idle');
-                  setFetchErrorDetail('');
-                }}
-              >
-                <option value="groq">Groq (免費額度 / Free tier)</option>
-                <option value="gemini">Google Gemini</option>
-                <option value="openai">OpenAI</option>
-                <option value="anthropic">Anthropic Claude</option>
-              </select>
-            </Field>
-            <Field label={t.settings.model}>
-              <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+              <Field label={t.settings.provider}>
                 <select
                   className="prism-select"
-                  style={{ flex: 1 }}
-                  value={s.model}
-                  onChange={e => update('model', e.target.value)}
-                  disabled={fetchingCloud}
+                  value={s.provider}
+                  onChange={e => {
+                    const p = e.target.value;
+                    const targetKey = (s.apiKeys && s.apiKeys[p]) || '';
+                    setS(prev => ({
+                      ...prev,
+                      provider: p,
+                      apiKey: targetKey,
+                      model: FALLBACK_MODELS[p] ? FALLBACK_MODELS[p][0].id : prev.model,
+                    }));
+                    setCloudModels([]);
+                    setFetchStatus('idle');
+                    setFetchErrorDetail('');
+                  }}
                 >
-                  {fetchingCloud ? (
-                    <option value="">{t.settings.loadingModels}</option>
-                  ) : cloudModels.length > 0 ? (
-                    cloudModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)
-                  ) : (
-                    (FALLBACK_MODELS[s.provider] || []).map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))
-                  )}
+                  <option value="groq">Groq (Free Tier)</option>
+                  <option value="gemini">Google Gemini</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic Claude</option>
                 </select>
-                <button
-                  type="button"
-                  onClick={refreshCloudModels}
-                  disabled={fetchingCloud || !currentApiKey || currentApiKey.trim().length <= 5}
-                  className="prism-btn prism-btn-ghost"
-                  style={{ padding: '0 16px' }}
-                  title={t.settings.loadingModels}
-                >
-                  {fetchingCloud ? '...' : '↻'}
-                </button>
-              </div>
-            </Field>
-            <Field label={t.settings.apiKey} hint={t.settings.apiKeyHint}>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              </Field>
+
+              <Field label={t.settings.model}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    className="prism-select"
+                    style={{ flex: 1 }}
+                    value={s.model}
+                    onChange={e => update('model', e.target.value)}
+                    disabled={fetchingCloud}
+                  >
+                    {fetchingCloud ? (
+                      <option value="">{t.settings.loadingModels}</option>
+                    ) : cloudModels.length > 0 ? (
+                      cloudModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)
+                    ) : (
+                      (FALLBACK_MODELS[s.provider] || []).map(m => (
+                        <option key={m.id} value={m.id}>{m.name}</option>
+                      ))
+                    )}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={refreshCloudModels}
+                    disabled={fetchingCloud || !currentApiKey || currentApiKey.trim().length <= 5}
+                    className="prism-btn prism-btn-ghost"
+                    style={{ padding: '0 12px' }}
+                    title={t.settings.loadingModels}
+                  >
+                    {fetchingCloud ? '...' : <SettingsIcons.Refresh />}
+                  </button>
+                </div>
+              </Field>
+            </div>
+
+            <Field label={t.settings.apiKey} style={{ marginBottom: '12px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   className="prism-input"
-                  type={showApiKey ? "text" : "password"}
-                  style={{ flex: 1 }}
+                  type={showApiKey ? 'text' : 'password'}
+                  style={{ flex: 1, fontFamily: 'var(--prism-font-mono)' }}
                   value={currentApiKey}
                   onChange={e => {
                     const val = e.target.value;
@@ -862,7 +968,7 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                   title={showApiKey ? t.settings.toggleMaskHide : t.settings.toggleMaskShow}
                   disabled={isProtected && !isUnlocked}
                 >
-                  {showApiKey ? '🙈' : '👁️'}
+                  {showApiKey ? <SettingsIcons.EyeOff /> : <SettingsIcons.Eye />}
                 </button>
                 {isProtected && !isUnlocked && (
                   <button
@@ -871,24 +977,21 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                     className="prism-btn prism-btn-primary"
                     style={{ padding: '0 16px' }}
                   >
-                    🔓 {t.settings.unlockBtn}
+                    <SettingsIcons.Unlock /> {t.settings.unlockBtn}
                   </button>
                 )}
               </div>
               {!currentApiKey ? (
-                <p style={{ fontSize: '12px', color: 'var(--prism-amber-400)', margin: '7px 0 0', display: 'flex', alignItems: 'center', gap: '6px', lineHeight: 1.4 }}>
-                  <span>ℹ️</span>
-                  <span>{t.settings.noKeyNotice}</span>
+                <p style={{ fontSize: '12px', color: 'var(--prism-amber-400)', margin: '8px 0 0', lineHeight: 1.4 }}>
+                  • {t.settings.noKeyNotice}
                 </p>
               ) : fetchStatus === 'success' ? (
-                <p style={{ fontSize: '12px', color: 'var(--prism-success)', margin: '7px 0 0', display: 'flex', alignItems: 'center', gap: '6px', lineHeight: 1.4 }}>
-                  <span>✓</span>
-                  <span>{t.settings.syncSuccessNotice}</span>
+                <p style={{ fontSize: '12px', color: 'var(--prism-success)', margin: '8px 0 0', lineHeight: 1.4 }}>
+                  ✓ {t.settings.syncSuccessNotice}
                 </p>
               ) : fetchStatus === 'error' ? (
-                <p style={{ fontSize: '12px', color: 'var(--prism-danger)', margin: '7px 0 0', display: 'flex', alignItems: 'center', gap: '6px', lineHeight: 1.4 }}>
-                  <span>❌</span>
-                  <span>{fetchErrorDetail ? `${t.settings.syncErrorNotice} (${fetchErrorDetail})` : t.settings.syncErrorNotice}</span>
+                <p style={{ fontSize: '12px', color: 'var(--prism-danger)', margin: '8px 0 0', lineHeight: 1.4 }}>
+                  ✕ {fetchErrorDetail ? `${t.settings.syncErrorNotice} (${fetchErrorDetail})` : t.settings.syncErrorNotice}
                 </p>
               ) : null}
             </Field>
@@ -896,26 +999,23 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
         )}
 
         {/* LLM Connection Test */}
-        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--prism-border-glass)' }}>
+        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--prism-border-subtle)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={handleTestLLM}
               disabled={testingLLM || (s.modelType === 'cloud' && (!currentApiKey || currentApiKey.trim().length <= 5))}
-              className="prism-btn prism-btn-ghost"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', fontSize: '13px' }}
+              className="prism-btn prism-btn-ghost prism-btn-sm"
             >
-              <span>{testingLLM ? '⏳' : '⚡'}</span>
+              <SettingsIcons.Zap />
               <span>{testingLLM ? t.settings.testingConnection : t.settings.testConnection}</span>
             </button>
             {llmTestResult && (
               <span
                 style={{
-                  fontSize: '12.5px',
+                  fontSize: '12px',
+                  fontFamily: 'var(--prism-font-mono)',
                   color: llmTestResult.success ? 'var(--prism-success)' : 'var(--prism-danger)',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
                 }}
               >
                 {llmTestResult.message}
@@ -925,161 +1025,136 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
         </div>
       </Section>
 
-      {/* Sources */}
-      <Section title={t.settings.sourcesSection}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
-          <Toggle fieldKey="discoveryMode" />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)', fontWeight: 500 }}>{t.settings.discoveryMode}</span>
-            <span style={{ fontSize: '11.5px', color: 'var(--prism-text-muted)' }}>{t.settings.discoveryHint}</span>
+      {/* ─── 03 // Intelligence Sources & Discovery ────────────────────── */}
+      <Section
+        index="03"
+        eyebrow="DATA PIPELINE"
+        title={t.settings.sourcesSection}
+        description={t.settings.discoveryHint}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '18px' }}>
+          <div>
+            <div style={{ fontSize: '13.5px', color: 'var(--prism-text-primary)', fontWeight: 500 }}>
+              {t.settings.discoveryMode}
+            </div>
+            <div style={{ fontSize: '11.5px', color: 'var(--prism-text-muted)', marginTop: '2px' }}>
+              {t.settings.discoverySwitchToCustomHint}
+            </div>
           </div>
+          <Toggle fieldKey="discoveryMode" />
         </div>
 
         {s.discoveryMode ? (
-          <div
-            style={{
-              padding: '14px 16px',
-              borderRadius: 'var(--prism-radius-md, 8px)',
-              background: 'rgba(255, 255, 255, 0.03)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              marginBottom: '20px',
-            }}
-          >
+          <div className="prism-insight-slot" style={{ marginBottom: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: 'var(--prism-success, #4caf50)',
-                  background: 'rgba(76, 175, 80, 0.12)',
-                  border: '1px solid rgba(76, 175, 80, 0.25)',
-                  padding: '3px 8px',
-                  borderRadius: '12px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
+              <span className="prism-badge prism-badge-success">
                 {t.settings.discoveryActiveBadge}
               </span>
             </div>
-            <p style={{ fontSize: '12.5px', color: 'var(--prism-text-secondary)', margin: '0 0 10px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '12.5px', color: 'var(--prism-text-secondary)', margin: '0 0 10px', lineHeight: 1.55 }}>
               {t.settings.discoveryActiveDesc}
             </p>
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '6px',
-                fontSize: '12px',
-                color: 'var(--prism-text-muted)',
-                background: 'rgba(0, 0, 0, 0.2)',
-                padding: '10px 12px',
-                borderRadius: '6px',
-                border: '1px solid rgba(255, 255, 255, 0.04)',
-                marginBottom: '10px',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                <span>🔬</span>
-                <span>{t.settings.discoveryScholarKeywords}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                <span>🔥</span>
-                <span>{t.settings.discoveryRedditKeywords}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                <span>📰</span>
-                <span>{t.settings.discoveryRssKeywords}</span>
-              </div>
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px',
+              fontSize: '11.5px',
+              fontFamily: 'var(--prism-font-mono)',
+              color: 'var(--prism-text-muted)',
+              paddingTop: '8px',
+              borderTop: '1px solid var(--prism-border-subtle)'
+            }}>
+              <div>01 // {t.settings.discoveryScholarKeywords}</div>
+              <div>02 // {t.settings.discoveryRedditKeywords}</div>
+              <div>03 // {t.settings.discoveryRssKeywords}</div>
             </div>
-            <p style={{ fontSize: '11.5px', color: 'var(--prism-text-muted)', margin: 0, lineHeight: 1.4 }}>
-              {t.settings.discoverySwitchToCustomHint}
-            </p>
           </div>
         ) : (
           <Field label={t.settings.customKeywordsTitle} hint={t.settings.customKeywordsHint}>
             <input
               className="prism-input"
-              style={{ width: '100%' }}
               value={s.keywords}
               onChange={e => update('keywords', e.target.value)}
               placeholder={t.settings.customKeywordsPlaceholder}
             />
           </Field>
         )}
-        {[
-          { key: 'enablePapers', label: t.settings.enablePapers },
-          { key: 'enableNews', label: t.settings.enableNews },
-          { key: 'enableReddit', label: t.settings.enableReddit },
-        ].map(({ key, label }) => (
-          <div key={key}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: key === 'enablePapers' && s.enablePapers !== false ? '10px' : '14px' }}>
-              <Toggle fieldKey={key} />
-              <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)' }}>{label}</span>
-            </div>
-            {key === 'enablePapers' && s.enablePapers !== false && (
-              <div style={{ marginLeft: '48px', marginBottom: '18px', maxWidth: '520px' }}>
-                <Field label={t.settings.scholarApiKey} hint={t.settings.scholarApiKeyHint}>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <input
-                      className="prism-input"
-                      type={showApiKey ? "text" : "password"}
-                      style={{ flex: 1 }}
-                      value={s.scholarApiKey}
-                      onChange={e => update('scholarApiKey', e.target.value)}
-                      placeholder={isProtected && !isUnlocked ? t.settings.tokenLockedPlaceholder : t.settings.scholarApiKeyPlaceholder}
-                      disabled={isProtected && !isUnlocked}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowApiKey(v => !v)}
-                      className="prism-btn prism-btn-ghost"
-                      style={{ padding: '0 12px' }}
-                      title={showApiKey ? t.settings.toggleMaskHide : t.settings.toggleMaskShow}
-                      disabled={isProtected && !isUnlocked}
-                    >
-                      {showApiKey ? '🙈' : '👁️'}
-                    </button>
-                    {isProtected && !isUnlocked && (
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', paddingTop: '14px', borderTop: '1px solid var(--prism-border-subtle)' }}>
+          {[
+            { key: 'enablePapers', label: t.settings.enablePapers },
+            { key: 'enableNews', label: t.settings.enableNews },
+            { key: 'enableReddit', label: t.settings.enableReddit },
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)' }}>{label}</span>
+                <Toggle fieldKey={key} />
+              </div>
+
+              {key === 'enablePapers' && s.enablePapers !== false && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '14px 16px',
+                  background: 'var(--prism-bg-recessed)',
+                  borderRadius: 'var(--prism-radius-md)',
+                  border: '1px solid var(--prism-border-subtle)'
+                }}>
+                  <Field label={t.settings.scholarApiKey} hint={t.settings.scholarApiKeyHint} style={{ marginBottom: 0 }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        className="prism-input"
+                        type={showApiKey ? 'text' : 'password'}
+                        style={{ flex: 1, fontFamily: 'var(--prism-font-mono)' }}
+                        value={s.scholarApiKey}
+                        onChange={e => update('scholarApiKey', e.target.value)}
+                        placeholder={isProtected && !isUnlocked ? t.settings.tokenLockedPlaceholder : t.settings.scholarApiKeyPlaceholder}
+                        disabled={isProtected && !isUnlocked}
+                      />
                       <button
                         type="button"
-                        onClick={() => setModalType('unlock')}
-                        className="prism-btn prism-btn-primary"
-                        style={{ padding: '0 16px' }}
+                        onClick={() => setShowApiKey(v => !v)}
+                        className="prism-btn prism-btn-ghost"
+                        style={{ padding: '0 12px' }}
+                        disabled={isProtected && !isUnlocked}
                       >
-                        🔓 {t.settings.unlockBtn}
+                        {showApiKey ? <SettingsIcons.EyeOff /> : <SettingsIcons.Eye />}
                       </button>
-                    )}
-                  </div>
-                  <div style={{ marginTop: '6px' }}>
-                    <a
-                      href="https://www.semanticscholar.org/product/api#api-key-form"
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ fontSize: '12px', color: 'var(--prism-amber-400)', textDecoration: 'none' }}
-                    >
-                      {t.settings.scholarApplyKey}
-                    </a>
-                  </div>
-                </Field>
-              </div>
-            )}
-          </div>
-        ))}
+                    </div>
+                    <div style={{ marginTop: '8px' }}>
+                      <a
+                        href="https://www.semanticscholar.org/product/api#api-key-form"
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ fontSize: '11.5px', fontFamily: 'var(--prism-font-mono)', color: 'var(--prism-amber-400)', textDecoration: 'none' }}
+                      >
+                        {t.settings.scholarApplyKey} ↗
+                      </a>
+                    </div>
+                  </Field>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       </Section>
 
-      {/* Telegram */}
-      <Section title={t.settings.telegramSection}>
-        <Field label={t.settings.botToken} hint={t.settings.telegramHint}>
-          <div style={{ display: 'flex', gap: '10px' }}>
+      {/* ─── 04 // Telegram Dispatch ───────────────────────────────────── */}
+      <Section
+        index="04"
+        eyebrow="DISPATCH CHANNEL"
+        title={t.settings.telegramSection}
+        description={t.settings.telegramHint}
+      >
+        <Field label={t.settings.botToken}>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <input
               className="prism-input"
-              type={showApiKey ? "text" : "password"}
-              style={{ flex: 1 }}
+              type={showApiKey ? 'text' : 'password'}
+              style={{ flex: 1, fontFamily: 'var(--prism-font-mono)' }}
               value={s.botToken}
               onChange={e => update('botToken', e.target.value)}
-              placeholder={isProtected && !isUnlocked ? t.settings.tokenLockedPlaceholder : "1234567890:AAF..."}
+              placeholder={isProtected && !isUnlocked ? t.settings.tokenLockedPlaceholder : '1234567890:AAF...'}
               disabled={isProtected && !isUnlocked}
             />
             <button
@@ -1087,59 +1162,58 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
               onClick={() => setShowApiKey(v => !v)}
               className="prism-btn prism-btn-ghost"
               style={{ padding: '0 12px' }}
-              title={showApiKey ? t.settings.toggleMaskHide : t.settings.toggleMaskShow}
               disabled={isProtected && !isUnlocked}
             >
-              {showApiKey ? '🙈' : '👁️'}
+              {showApiKey ? <SettingsIcons.EyeOff /> : <SettingsIcons.Eye />}
             </button>
-            {isProtected && !isUnlocked && (
-              <button
-                type="button"
-                onClick={() => setModalType('unlock')}
-                className="prism-btn prism-btn-primary"
-                style={{ padding: '0 16px' }}
-              >
-                🔓 {t.settings.unlockBtn}
-              </button>
-            )}
           </div>
         </Field>
+
         <Field label={t.settings.chatId}>
           <input
             className="prism-input"
+            style={{ fontFamily: 'var(--prism-font-mono)' }}
             value={s.chatId}
             onChange={e => update('chatId', e.target.value)}
             placeholder="-100123456789 or @username"
           />
         </Field>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
-          <Toggle fieldKey="autoTelegram" />
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '18px' }}>
           <span style={{ fontSize: '13.5px', color: 'var(--prism-text-secondary)' }}>
             {t.settings.autoSendTelegram}
           </span>
+          <Toggle fieldKey="autoTelegram" />
         </div>
 
-        <button
-          onClick={testTelegram}
-          disabled={testing || (isProtected && !isUnlocked)}
-          className="prism-btn prism-btn-ghost"
-        >
-          {testing ? <><span className="animate-spin">⟳</span> {t.settings.sending}</> : t.settings.testTelegram}
-        </button>
-        {testMsg && (
-          <p style={{
-            marginTop: '10px', fontSize: '12.5px',
-            color: testMsg.startsWith('✓') ? 'var(--prism-success)' : 'var(--prism-danger)',
-          }}>{testMsg}</p>
-        )}
+        <div style={{ paddingTop: '14px', borderTop: '1px solid var(--prism-border-subtle)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={testTelegram}
+            disabled={testing || (isProtected && !isUnlocked)}
+            className="prism-btn prism-btn-ghost prism-btn-sm"
+          >
+            {testing ? <><span className="animate-spin">⟳</span> {t.settings.sending}</> : t.settings.testTelegram}
+          </button>
+          {testMsg && (
+            <span style={{
+              fontSize: '12px',
+              fontFamily: 'var(--prism-font-mono)',
+              color: testMsg.startsWith('✓') ? 'var(--prism-success)' : 'var(--prism-danger)',
+            }}>
+              {testMsg}
+            </span>
+          )}
+        </div>
       </Section>
 
-      {/* Backup & Restore */}
-      <Section title={t.settings.backupSection || '設定備份與還原'}>
-        <p style={{ fontSize: '13px', color: 'var(--prism-text-muted)', marginBottom: '16px', lineHeight: 1.6 }}>
-          {t.settings.backupHint}
-        </p>
-
+      {/* ─── 05 // Backup & Restore Archive ────────────────────────────── */}
+      <Section
+        index="05"
+        eyebrow="DATA ARCHIVE"
+        title={t.settings.backupSection || '設定備份與還原'}
+        description={t.settings.backupHint}
+      >
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -1164,7 +1238,7 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
               }
             }}
           >
-            📥 {t.settings.exportBackupBtn}
+            <SettingsIcons.Download /> {t.settings.exportBackupBtn}
           </button>
 
           <input
@@ -1197,14 +1271,16 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
             className="prism-btn prism-btn-ghost"
             onClick={() => fileInputRef.current?.click()}
           >
-            📤 {t.settings.importBackupBtn}
+            <SettingsIcons.Upload /> {t.settings.importBackupBtn}
           </button>
         </div>
 
         {backupMsg && (
           <p style={{
             marginTop: '12px',
-            fontSize: '12.5px',
+            marginBottom: 0,
+            fontSize: '12px',
+            fontFamily: 'var(--prism-font-mono)',
             color: backupMsg.startsWith('✓') ? 'var(--prism-success)' : 'var(--prism-danger)',
           }}>
             {backupMsg}
@@ -1212,21 +1288,8 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
         )}
       </Section>
 
-      {/* Save */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '40px', flexWrap: 'wrap' }}>
-        <button
-          onClick={save}
-          className={`prism-btn ${saved ? 'prism-btn-success' : 'prism-btn-primary'}`}
-          style={{
-            minWidth: '140px',
-            padding: '10px 30px',
-            boxShadow: isDirty && !saved ? 'var(--prism-glow-amber), 0 0 16px rgba(200, 160, 96, 0.35)' : undefined,
-          }}
-        >
-          {isDirty && !saved && <span className="prism-unsaved-dot" style={{ marginRight: '6px' }} />}
-          {saved ? t.settings.savedSuccess : t.settings.save}
-        </button>
-
+      {/* ─── Bottom Action Bar ─────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '14px', marginBottom: '48px', flexWrap: 'wrap' }}>
         {isDirty && (
           <button
             type="button"
@@ -1236,8 +1299,15 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
             {t.settings.discardChanges}
           </button>
         )}
+        <button
+          onClick={save}
+          className={`prism-btn ${saved ? 'prism-btn-success' : 'prism-btn-primary'}`}
+          style={{ minWidth: '160px', padding: '11px 32px' }}
+        >
+          {isDirty && !saved && <span className="prism-unsaved-dot" style={{ marginRight: '6px' }} />}
+          {saved ? t.settings.savedSuccess : t.settings.save}
+        </button>
       </div>
-
 
       {/* Modals */}
       <PasswordManageModal

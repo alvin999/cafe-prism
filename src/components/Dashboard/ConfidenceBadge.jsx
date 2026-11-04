@@ -11,7 +11,8 @@ export default function ConfidenceBadge({ level, t }) {
       fontSize: '11px', fontWeight: 500,
       color: cfg.color, background: cfg.bg,
       border: `1px solid ${cfg.border}`,
-      borderRadius: '20px', padding: '3px 9px',
+      borderRadius: 'var(--prism-radius-sm)', padding: '3px 9px',
+      fontFamily: 'var(--prism-font-mono)',
       letterSpacing: '0.02em',
     }}>
       <span style={{ fontSize: '8px' }}>{cfg.dot}</span>
