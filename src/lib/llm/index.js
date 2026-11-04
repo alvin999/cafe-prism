@@ -1,3 +1,4 @@
+import { KeyStatus } from '../sampleData.js';
 // ─── Parsing utility ─────────────────────────────────────────────────────────
 export function parseAIGeneratedJSON(text) {
   let jsonStr = text.trim();
@@ -63,6 +64,25 @@ export function parseAIGeneratedJSON(text) {
 }
 
 
+// ─── Custom Errors for Fast-Fail Detection ─────────────────────────────────
+export class LLMAuthError extends Error {
+  constructor(message, provider) {
+    super(message);
+    this.name = 'LLMAuthError';
+    this.provider = provider;
+    this.isAuthError = true;
+  }
+}
+
+export class LLMConnectionError extends Error {
+  constructor(message, provider) {
+    super(message);
+    this.name = 'LLMConnectionError';
+    this.provider = provider;
+    this.isConnectionError = true;
+  }
+}
+
 // ─── LLM caller ─────────────────────────────────────────────────────────────
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -76,67 +96,111 @@ export async function callLLM(settings, prompt, retries = 2, signal = null) {
 
   const attemptFetch = async () => {
     if (settings.modelType === 'local') {
-      const r = await fetch(`${settings.ollamaUrl}/api/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: settings.ollamaModel, prompt, stream: false }),
-        signal,
-      });
-      if (!r.ok) throw new Error(`Ollama request failed: ${r.status}`);
+      let r;
+      try {
+        r = await fetch(`${settings.ollamaUrl}/api/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: settings.ollamaModel, prompt, stream: false }),
+          signal,
+        });
+      } catch (netErr) {
+        if (netErr.name === 'AbortError') throw netErr;
+        throw new LLMConnectionError(`無法連線至本地 Ollama (${settings.ollamaUrl})，請確認服務已啟動`, 'ollama');
+      }
+      if (!r.ok) {
+        if (r.status === 404) {
+          throw new LLMConnectionError(`Ollama 找不到模型 (${settings.ollamaModel})，請先執行 ollama pull`, 'ollama');
+        }
+        throw new LLMConnectionError(`Ollama 連線失敗 (HTTP ${r.status})`, 'ollama');
+      }
       const d = await r.json();
       return d.response;
     }
 
     if (provider === 'openai') {
-      const r = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: model || 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-        }),
-        signal,
-      });
-      if (!r.ok) throw new Error(`OpenAI error: ${await r.text()}`);
+      let r;
+      try {
+        r = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: model || 'gpt-4o-mini',
+            messages: [{ role: 'user', content: prompt }],
+          }),
+          signal,
+        });
+      } catch (netErr) {
+        if (netErr.name === 'AbortError') throw netErr;
+        throw new LLMConnectionError(`無法連線至 OpenAI 伺服器：${netErr.message}`, 'openai');
+      }
+      if (!r.ok) {
+        const errText = await r.text();
+        if (r.status === 401 || r.status === 403 || errText.includes('invalid_api_key')) {
+          throw new LLMAuthError(`OpenAI API 金鑰無效或未授權 (HTTP ${r.status})`, 'openai');
+        }
+        if (r.status === 429) throw new Error('RATE_LIMIT');
+        throw new Error(`OpenAI error: ${errText}`);
+      }
       const d = await r.json();
       return d.choices?.[0]?.message?.content || '';
     }
 
     if (provider === 'anthropic') {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: model || 'claude-3-5-haiku-20241022',
-          max_tokens: 1500,
-          messages: [{ role: 'user', content: prompt }],
-        }),
-        signal,
-      });
-      if (!r.ok) throw new Error(`Anthropic error: ${await r.text()}`);
+      let r;
+      try {
+        r = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: model || 'claude-3-5-haiku-20241022',
+            max_tokens: 1500,
+            messages: [{ role: 'user', content: prompt }],
+          }),
+          signal,
+        });
+      } catch (netErr) {
+        if (netErr.name === 'AbortError') throw netErr;
+        throw new LLMConnectionError(`無法連線至 Anthropic 伺服器：${netErr.message}`, 'anthropic');
+      }
+      if (!r.ok) {
+        const errText = await r.text();
+        if (r.status === 401 || r.status === 403 || errText.includes('authentication_error')) {
+          throw new LLMAuthError(`Anthropic API 金鑰無效或未授權 (HTTP ${r.status})`, 'anthropic');
+        }
+        if (r.status === 429) throw new Error('RATE_LIMIT');
+        throw new Error(`Anthropic error: ${errText}`);
+      }
       const d = await r.json();
       return d.content?.[0]?.text || '';
     }
 
     if (provider === 'groq') {
-      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: model || 'llama-3.3-70b-versatile',
-          messages: [{ role: 'user', content: prompt }],
-          // Removing max_tokens prevents Groq from over-reserving the TPM bucket
-          // which immediately hits the 6000 TPM free tier limit.
-        }),
-        signal,
-      });
+      let r;
+      try {
+        r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: model || 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+          }),
+          signal,
+        });
+      } catch (netErr) {
+        if (netErr.name === 'AbortError') throw netErr;
+        throw new LLMConnectionError(`無法連線至 Groq 伺服器：${netErr.message}`, 'groq');
+      }
       if (!r.ok) {
         const errText = await r.text();
+        if (r.status === 401 || r.status === 403 || errText.includes('invalid_api_key')) {
+          throw new LLMAuthError(`Groq API 金鑰無效或未授權 (HTTP ${r.status})`, 'groq');
+        }
         if (r.status === 429) throw new Error('RATE_LIMIT');
         throw new Error(`Groq error: ${errText}`);
       }
@@ -147,16 +211,28 @@ export async function callLLM(settings, prompt, retries = 2, signal = null) {
     if (provider === 'gemini') {
       const selectedModel = model || 'gemini-2.0-flash';
       const cleanModel = selectedModel.replace(/^models\//, '');
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        }),
-        signal,
-      });
+      let r;
+      try {
+        r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${cleanModel}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          }),
+          signal,
+        });
+      } catch (netErr) {
+        if (netErr.name === 'AbortError') throw netErr;
+        throw new LLMConnectionError(`無法連線至 Gemini 伺服器：${netErr.message}`, 'gemini');
+      }
       if (!r.ok) {
         const errText = await r.text();
+        if (r.status === 400 && (errText.includes('API_KEY_INVALID') || errText.includes('API key not valid'))) {
+          throw new LLMAuthError('Gemini API 金鑰無效 (API_KEY_INVALID)', 'gemini');
+        }
+        if (r.status === 401 || r.status === 403) {
+          throw new LLMAuthError(`Gemini API 金鑰未授權 (HTTP ${r.status})`, 'gemini');
+        }
         if (r.status === 429) throw new Error('RATE_LIMIT');
         throw new Error(`Gemini error: ${errText}`);
       }
@@ -173,8 +249,12 @@ export async function callLLM(settings, prompt, retries = 2, signal = null) {
     if (signal?.aborted || err.name === 'AbortError') {
       throw err;
     }
+    // 金鑰無效或網路連線失敗：立刻熔斷拋出，絕不重試浪費等待時間
+    if (err.isAuthError || err.isConnectionError) {
+      throw err;
+    }
     if (err.message === 'RATE_LIMIT' && retries > 0) {
-      const waitTime = (3 - retries) * 6000; // 第一次失敗等 6 秒，第二次等 12 秒
+      const waitTime = (3 - retries) * 6000;
       console.warn(`Rate limit hit, waiting ${waitTime / 1000} seconds before retry...`);
       await delay(waitTime);
       return callLLM(settings, prompt, retries - 1, signal);
@@ -349,4 +429,140 @@ JSON STRUCTURE:
 
 ARTICLES:
 ${excerpts}`;
+}
+
+// ─── Pre-flight API Key & Connection Fast Validation ─────────────────────────
+const validKeyCache = new Map(); // key: `${provider}_${keyHash}`, val: timestamp
+
+export async function validateAPIKeyPreflight(settings, signal = null) {
+  if (settings.modelType === 'local') {
+    if (!settings.ollamaUrl || !settings.ollamaModel) {
+      throw new LLMConnectionError('尚未填寫本地 Ollama 位址或模型名稱', 'ollama');
+    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500); // 1.5 秒極速快篩
+    try {
+      const r = await fetch(`${settings.ollamaUrl}/api/tags`, {
+        signal: signal || controller.signal,
+      });
+      if (!r.ok) {
+        throw new LLMConnectionError(`本地 Ollama 連線失敗 (HTTP ${r.status})`, 'ollama');
+      }
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      throw new LLMConnectionError(`無法連線至本地 Ollama (${settings.ollamaUrl})，請確認服務已啟動`, 'ollama');
+    } finally {
+      clearTimeout(timeout);
+    }
+    return true;
+  }
+
+  const provider = settings.provider || 'groq';
+  const apiKey = (settings.apiKeys && settings.apiKeys[provider]) || settings.apiKey;
+
+  if (!apiKey || !apiKey.trim()) {
+    throw new LLMAuthError(`尚未輸入 ${provider.toUpperCase()} API 金鑰`, provider);
+  }
+
+  const trimmedKey = apiKey.trim();
+
+  // 1. 若該金鑰在設定頁已知無效，0 秒立即熔斷，完全不浪費網路等待！
+  const known = KeyStatus.getStatus(provider, trimmedKey);
+  if (known && known.isValid === false) {
+    throw new LLMAuthError(known.error || `${provider.toUpperCase()} 金鑰驗證無效`, provider);
+  }
+
+  const cacheKey = `${provider}_${trimmedKey.slice(0, 8)}_${trimmedKey.slice(-6)}`;
+  const cachedTime = validKeyCache.get(cacheKey);
+  if (cachedTime && Date.now() - cachedTime < 120000) {
+    return true; // 2 分鐘內預檢通過，免重複發送請求
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 1500); // 1.5 秒極限快篩
+  const activeSignal = signal || controller.signal;
+
+  try {
+    if (provider === 'groq') {
+      const r = await fetch('https://api.groq.com/openai/v1/models', {
+        headers: { Authorization: `Bearer ${trimmedKey}` },
+        signal: activeSignal,
+      });
+      if (!r.ok) {
+        if (r.status === 401 || r.status === 403) {
+          throw new LLMAuthError('Groq API 金鑰無效或未授權 (401 Unauthorized)', 'groq');
+        }
+        if (r.status !== 429) {
+          throw new LLMAuthError(`Groq 金鑰驗證失敗 (HTTP ${r.status})`, 'groq');
+        }
+      }
+    } else if (provider === 'openai') {
+      const r = await fetch('https://api.openai.com/v1/models', {
+        headers: { Authorization: `Bearer ${trimmedKey}` },
+        signal: activeSignal,
+      });
+      if (!r.ok) {
+        if (r.status === 401 || r.status === 403) {
+          throw new LLMAuthError('OpenAI API 金鑰無效或未授權 (401 Unauthorized)', 'openai');
+        }
+        if (r.status !== 429) {
+          throw new LLMAuthError(`OpenAI 金鑰驗證失敗 (HTTP ${r.status})`, 'openai');
+        }
+      }
+    } else if (provider === 'gemini') {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${trimmedKey}`, {
+        signal: activeSignal,
+      });
+      if (!r.ok) {
+        const text = await r.text();
+        if (r.status === 400 || r.status === 401 || r.status === 403 || text.includes('API_KEY_INVALID')) {
+          throw new LLMAuthError('Gemini API 金鑰無效 (API_KEY_INVALID)', 'gemini');
+        }
+        if (r.status !== 429) {
+          throw new LLMAuthError(`Gemini 金鑰驗證失敗 (HTTP ${r.status})`, 'gemini');
+        }
+      }
+    } else if (provider === 'anthropic') {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': trimmedKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 1,
+          messages: [{ role: 'user', content: 'ping' }],
+        }),
+        signal: activeSignal,
+      });
+      if (!r.ok) {
+        const text = await r.text();
+        if (r.status === 401 || r.status === 403 || text.includes('authentication_error')) {
+          throw new LLMAuthError('Anthropic API 金鑰無效或未授權 (401 Unauthorized)', 'anthropic');
+        }
+        if (r.status !== 429) {
+          throw new LLMAuthError(`Anthropic 金鑰驗證失敗 (HTTP ${r.status})`, 'anthropic');
+        }
+      }
+    }
+
+    validKeyCache.set(cacheKey, Date.now());
+    KeyStatus.markValid(provider, trimmedKey);
+    return true;
+  } catch (err) {
+    if (activeSignal.aborted && signal?.aborted) {
+      throw err;
+    }
+    const finalErr = (err.isAuthError || err.isConnectionError)
+      ? err
+      : new LLMConnectionError(`無法連線至 ${provider.toUpperCase()} 服務，請確認網路連線`, provider);
+    
+    KeyStatus.markInvalid(provider, trimmedKey, finalErr.message);
+    throw finalErr;
+  } finally {
+    clearTimeout(timeout);
+  }
 }

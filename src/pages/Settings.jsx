@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLang } from '../App.jsx';
-import { Storage, sendTelegram, fetchOllamaModels, fetchProviderModels, testLLMConnection } from '../lib/engine.js';
+import { Storage, sendTelegram, fetchOllamaModels, fetchProviderModels, testLLMConnection, KeyStatus } from '../lib/engine.js';
 import UnlockModal from '../components/UnlockModal.jsx';
 
 function Section({ title, children }) {
@@ -332,6 +332,7 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
       if (models && models.length > 0) {
         setCloudModels(models);
         setFetchStatus('success');
+        KeyStatus.markValid(s.provider, key.trim());
         if (!s.model) {
           update('model', models[0].id);
         }
@@ -344,7 +345,9 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
       console.error('Failed to fetch cloud models:', e);
       setCloudModels([]);
       setFetchStatus('error');
-      setFetchErrorDetail(e.message || 'Connection error');
+      const errDetail = e.message || 'Connection error';
+      setFetchErrorDetail(errDetail);
+      KeyStatus.markInvalid(s.provider, key.trim(), errDetail);
     } finally {
       setFetchingCloud(false);
     }
@@ -373,11 +376,13 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
           success: true,
           message: `${t.settings.testConnectionSuccess} (${res.latencyMs}ms)`,
         });
+        KeyStatus.markValid(s.provider, currentApiKey);
       } else {
         setLlmTestResult({
           success: false,
           message: `${t.settings.testConnectionFailed}: ${res.error}`,
         });
+        KeyStatus.markInvalid(s.provider, currentApiKey, res.error);
       }
     } catch (err) {
       setLlmTestResult({
@@ -882,8 +887,8 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                 </p>
               ) : fetchStatus === 'error' ? (
                 <p style={{ fontSize: '12px', color: 'var(--prism-danger)', margin: '7px 0 0', display: 'flex', alignItems: 'center', gap: '6px', lineHeight: 1.4 }}>
-                  <span>⚠️</span>
-                  <span>{t.settings.syncErrorNotice}</span>
+                  <span>❌</span>
+                  <span>{fetchErrorDetail ? `${t.settings.syncErrorNotice} (${fetchErrorDetail})` : t.settings.syncErrorNotice}</span>
                 </p>
               ) : null}
             </Field>

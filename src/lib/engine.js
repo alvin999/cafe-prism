@@ -9,6 +9,7 @@ import {
   fetchGeminiModels,
   fetchProviderModels,
   testLLMConnection,
+  validateAPIKeyPreflight,
 } from './llm/index.js';
 import {
   computeNextRun,
@@ -16,6 +17,12 @@ import {
   checkMissedRun,
   executeScheduledTask,
 } from './scheduler/scheduler.js';
+import {
+  hasConfiguredModel,
+  getSampleCards,
+  getSampleSourceStatus,
+  KeyStatus,
+} from './sampleData.js';
 
 export {
   runResearchPipeline,
@@ -29,9 +36,13 @@ export {
   fetchGeminiModels,
   fetchProviderModels,
   testLLMConnection,
+  validateAPIKeyPreflight,
   computeNextRun,
   getPreviousScheduledRunTime,
   checkMissedRun,
   executeScheduledTask,
+  hasConfiguredModel,
+  getSampleCards,
+  getSampleSourceStatus,
+  KeyStatus,
 };
-

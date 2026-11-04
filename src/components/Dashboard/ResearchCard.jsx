@@ -27,6 +27,18 @@ export default function ResearchCard({ card, t, lang }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px', flexWrap: 'wrap' }}>
         <ConfidenceBadge level={card.confidence} t={t} />
 
+        {card.isSample && (
+          <span className="prism-badge" style={{
+            background: 'rgba(168, 85, 247, 0.15)',
+            color: '#c084fc',
+            border: '1px solid rgba(168, 85, 247, 0.3)',
+            fontSize: '11px',
+            padding: '2px 8px'
+          }}>
+            ✦ {t.dashboard.sampleBadge || '示範範例'}
+          </span>
+        )}
+
         {card.crossVerified && (
           <span className="prism-badge prism-badge-success">
             ✓ {t.dashboard.crossVerified}

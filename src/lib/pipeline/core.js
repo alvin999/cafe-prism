@@ -1,7 +1,7 @@
 import { fetchCoffeeRSS } from '../sources/rss.js';
 import { fetchSemanticScholar } from '../sources/scholar.js';
 import { fetchReddit } from '../sources/reddit.js';
-import { callLLM, buildGroundedSummaryPrompt, parseAIGeneratedJSON } from '../llm/index.js';
+import { callLLM, buildGroundedSummaryPrompt, parseAIGeneratedJSON, validateAPIKeyPreflight } from '../llm/index.js';
 import { computeConfidence, detectConflicts } from '../analyze/confidence.js';
 import { hashText } from '../utils/hash.js';
 import { Storage } from '../utils/storage.js';

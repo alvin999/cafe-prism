@@ -17,6 +17,7 @@ export default function Dashboard({ onNavigate }) {
     lastRun,
     sentTelegram,
     noModelMode,
+    isSample,
     needUnlock,
     handleUnlockSuccess,
     handleCancelUnlock,
@@ -30,8 +31,20 @@ export default function Dashboard({ onNavigate }) {
       {/* Page header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 className="prism-page-title" style={{ margin: 0 }}>
-            {t.dashboard.title}
+          <h1 className="prism-page-title" style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
+            <span>{t.dashboard.title}</span>
+            {isSample && (
+              <span className="prism-badge" style={{
+                background: 'rgba(168, 85, 247, 0.15)',
+                color: '#c084fc',
+                border: '1px solid rgba(168, 85, 247, 0.3)',
+                fontSize: '11px',
+                padding: '2px 8px',
+                fontWeight: 500
+              }}>
+                ✦ {t.dashboard.sampleBadge}
+              </span>
+            )}
           </h1>
           {lastRun && (
             <p style={{ margin: '6px 0 0', fontSize: '12px', color: 'var(--prism-text-muted)' }}>
@@ -278,51 +291,134 @@ export default function Dashboard({ onNavigate }) {
         </div>
       )}
 
-      {/* No-Model / Connection Error Reminder Banner */}
-      {noModelMode && cards.length > 0 && !running && (
+      {/* Sample Demonstration Banner */}
+      {isSample && !noModelMode && !running && (
         <div className="prism-card animate-fade-in" style={{
-          borderColor: noModelMode === 'conn_error' ? 'var(--prism-danger-border)' : 'var(--prism-warning-border)',
-          background: noModelMode === 'conn_error' ? 'var(--prism-danger-bg)' : 'var(--prism-warning-bg)',
+          borderColor: 'rgba(168, 85, 247, 0.35)',
+          background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(59, 130, 246, 0.05) 100%)',
           padding: '16px 20px',
           marginBottom: '24px',
           display: 'flex',
-          alignItems: 'flex-start',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
           gap: '14px',
         }}>
-          <span style={{ fontSize: '22px', flexShrink: 0, marginTop: '1px' }}>
-            {noModelMode === 'conn_error' ? '⚠️' : '🔌'}
-          </span>
-          <div style={{ flex: 1 }}>
-            <div style={{
-              fontWeight: 600,
-              color: noModelMode === 'conn_error' ? 'var(--prism-danger)' : 'var(--prism-amber-400)',
-              fontSize: '14px',
-              marginBottom: '5px'
-            }}>
-              {noModelMode === 'conn_error' ? t.dashboard.modelConnErrorTitle : t.dashboard.noModelBannerTitle}
-            </div>
-            <div style={{
-              fontSize: '12.5px',
-              color: 'var(--prism-text-secondary)',
-              lineHeight: 1.7
-            }}>
-              {noModelMode === 'conn_error' ? t.dashboard.modelConnErrorDesc : t.dashboard.noModelBannerDesc}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1, minWidth: '260px' }}>
+            <span style={{ fontSize: '24px', flexShrink: 0, marginTop: '1px' }}>✨</span>
+            <div>
+              <div style={{
+                fontWeight: 600,
+                color: 'var(--prism-text-primary)',
+                fontSize: '14px',
+                marginBottom: '4px'
+              }}>
+                {t.dashboard.sampleBannerTitle}
+              </div>
+              <div style={{
+                fontSize: '12.5px',
+                color: 'var(--prism-text-secondary)',
+                lineHeight: 1.6
+              }}>
+                {t.dashboard.sampleBannerDesc}
+              </div>
             </div>
           </div>
-          <a
-            href="#settings"
-            onClick={e => { e.preventDefault(); document.querySelector('[data-nav="settings"]')?.click(); }}
-            className={`prism-btn prism-btn-sm ${noModelMode === 'conn_error' ? 'prism-btn-danger' : 'prism-btn-primary'}`}
+          <button
+            type="button"
+            onClick={() => {
+              if (onNavigate) {
+                onNavigate('settings');
+              } else {
+                document.querySelector('[data-nav="settings"]')?.click();
+              }
+            }}
+            className="prism-btn prism-btn-sm prism-btn-primary"
             style={{
               flexShrink: 0,
               alignSelf: 'center',
               textDecoration: 'none',
+              background: 'linear-gradient(135deg, #9333ea, #6366f1)',
+              borderColor: 'transparent',
+              color: '#ffffff',
+              boxShadow: '0 2px 10px rgba(147, 51, 234, 0.3)'
             }}
           >
-            {t.dashboard.noModelGoSettings} →
-          </a>
+            {t.dashboard.sampleGoSettings} →
+          </button>
         </div>
       )}
+
+      {/* Auth Error / Connection Error / No-Model Reminder Banner */}
+      {noModelMode && cards.length > 0 && !running && (() => {
+        const isAuth = noModelMode === 'auth_error';
+        const isConn = noModelMode === 'conn_error';
+        const isDanger = isAuth || isConn;
+
+        const icon = isAuth ? '❌' : isConn ? '⚠️' : '🔌';
+        const title = isAuth
+          ? t.dashboard.modelAuthErrorTitle
+          : isConn
+            ? t.dashboard.modelConnErrorTitle
+            : t.dashboard.noModelBannerTitle;
+
+        const desc = isAuth
+          ? (error ? `${t.dashboard.modelAuthErrorDesc} (${error})` : t.dashboard.modelAuthErrorDesc)
+          : isConn
+            ? (error ? `${t.dashboard.modelConnErrorDesc} (${error})` : t.dashboard.modelConnErrorDesc)
+            : t.dashboard.noModelBannerDesc;
+
+        return (
+          <div className="prism-card animate-fade-in" style={{
+            borderColor: isDanger ? 'var(--prism-danger-border)' : 'var(--prism-warning-border)',
+            background: isDanger ? 'var(--prism-danger-bg)' : 'var(--prism-warning-bg)',
+            padding: '16px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '14px',
+          }}>
+            <span style={{ fontSize: '22px', flexShrink: 0, marginTop: '1px' }}>
+              {icon}
+            </span>
+            <div style={{ flex: 1 }}>
+              <div style={{
+                fontWeight: 600,
+                color: isDanger ? 'var(--prism-danger)' : 'var(--prism-amber-400)',
+                fontSize: '14px',
+                marginBottom: '5px'
+              }}>
+                {title}
+              </div>
+              <div style={{
+                fontSize: '12.5px',
+                color: 'var(--prism-text-secondary)',
+                lineHeight: 1.7
+              }}>
+                {desc}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (onNavigate) {
+                  onNavigate('settings');
+                } else {
+                  document.querySelector('[data-nav="settings"]')?.click();
+                }
+              }}
+              className={`prism-btn prism-btn-sm ${isDanger ? 'prism-btn-danger' : 'prism-btn-primary'}`}
+              style={{
+                flexShrink: 0,
+                alignSelf: 'center',
+                textDecoration: 'none',
+              }}
+            >
+              {t.dashboard.noModelGoSettings} →
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Cards Display */}
       {cards.length === 0 && !running && (
