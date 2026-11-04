@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLang } from '../App.jsx';
-import { Storage, sendTelegram, fetchOllamaModels, fetchProviderModels, testLLMConnection, KeyStatus } from '../lib/engine.js';
+import { Storage, sendTelegram, formatTelegramMessage, getSampleCards, fetchOllamaModels, fetchProviderModels, testLLMConnection, KeyStatus } from '../lib/engine.js';
 import UnlockModal from '../components/UnlockModal.jsx';
 
 /* ─── Precision 1.5px SVG Icons for Settings Console ───────────────────── */
@@ -332,6 +332,15 @@ const normalizeSettings = (raw = {}) => {
     enableNews: raw.enableNews !== undefined ? !!raw.enableNews : true,
     enableReddit: raw.enableReddit !== undefined ? !!raw.enableReddit : true,
     autoTelegram: raw.autoTelegram !== undefined ? !!raw.autoTelegram : false,
+    telegramTemplate: {
+      mode: raw.telegramTemplate?.mode || 'standard',
+      showConfidence: raw.telegramTemplate?.showConfidence !== undefined ? !!raw.telegramTemplate.showConfidence : true,
+      showSummary: raw.telegramTemplate?.showSummary !== undefined ? !!raw.telegramTemplate.showSummary : true,
+      showPracticalTip: raw.telegramTemplate?.showPracticalTip !== undefined ? !!raw.telegramTemplate.showPracticalTip : true,
+      showFunFact: raw.telegramTemplate?.showFunFact !== undefined ? !!raw.telegramTemplate.showFunFact : false,
+      showSourceLink: raw.telegramTemplate?.showSourceLink !== undefined ? !!raw.telegramTemplate.showSourceLink : true,
+      showMatrix: raw.telegramTemplate?.showMatrix !== undefined ? !!raw.telegramTemplate.showMatrix : false,
+    },
   };
 };
 
@@ -351,11 +360,17 @@ const areSettingsEqual = (a, b) => {
     const keyB = (b.apiKeys && b.apiKeys[p]) || '';
     if (keyA !== keyB) return false;
   }
+  const tmplA = a.telegramTemplate || {};
+  const tmplB = b.telegramTemplate || {};
+  const tmplKeys = ['mode', 'showConfidence', 'showSummary', 'showPracticalTip', 'showFunFact', 'showSourceLink', 'showMatrix'];
+  for (const k of tmplKeys) {
+    if (tmplA[k] !== tmplB[k]) return false;
+  }
   return true;
 };
 
 export default function Settings({ onDirtyChange, saveRef, discardRef }) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [s, setS] = useState(() => normalizeSettings(Storage.getSettings()));
   const [snapshot, setSnapshot] = useState(() => normalizeSettings(Storage.getSettings()));
 
@@ -600,7 +615,9 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
     setTesting(true);
     setTestMsg('');
     try {
-      await sendTelegram(s.botToken, s.chatId, t.settings.testTelegramMsg);
+      const sampleCards = getSampleCards(lang || 'zh').slice(0, 1);
+      const testBody = formatTelegramMessage(sampleCards, lang || 'zh', s.telegramTemplate);
+      await sendTelegram(s.botToken, s.chatId, testBody);
       setTestMsg(t.settings.testSuccess);
     } catch (e) {
       setTestMsg(`✗ ${e.message}`);
@@ -1184,6 +1201,202 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
             {t.settings.autoSendTelegram}
           </span>
           <Toggle fieldKey="autoTelegram" />
+        </div>
+
+        {/* ─── Telegram Template Configurator & Live Preview ─── */}
+        <div style={{
+          marginTop: '20px',
+          padding: '18px',
+          background: 'var(--prism-bg-recessed)',
+          borderRadius: 'var(--prism-radius-lg)',
+          border: '1px solid var(--prism-border-subtle)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px',
+        }}>
+          <div>
+            <div style={{
+              fontSize: '13px',
+              fontWeight: 650,
+              color: 'var(--prism-text-primary)',
+              fontFamily: 'var(--prism-font-display)',
+              marginBottom: '4px'
+            }}>
+              {t.settings.telegramTemplate?.title || '推播範本自訂與即時預覽'}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--prism-text-dim)' }}>
+              {t.settings.telegramTemplate?.hint || '自訂派發至 Telegram 的內容欄位、長度與版面結構'}
+            </div>
+          </div>
+
+          {/* Preset Buttons */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '11px', fontFamily: 'var(--prism-font-mono)', color: 'var(--prism-text-dim)' }}>
+              {t.settings.telegramTemplate?.preset || '快速預設'}:
+            </span>
+            <button
+              type="button"
+              className={`prism-btn prism-btn-sm ${s.telegramTemplate?.mode === 'compact' ? 'prism-btn-primary' : 'prism-btn-ghost'}`}
+              onClick={() => {
+                setS(prev => ({
+                  ...prev,
+                  telegramTemplate: {
+                    mode: 'compact',
+                    showConfidence: true,
+                    showSummary: true,
+                    showPracticalTip: true,
+                    showFunFact: false,
+                    showSourceLink: true,
+                    showMatrix: false,
+                  }
+                }));
+              }}
+              style={{ fontSize: '11.5px', padding: '4px 10px' }}
+            >
+              ⚡ {t.settings.telegramTemplate?.modeCompact || '精簡重點'}
+            </button>
+            <button
+              type="button"
+              className={`prism-btn prism-btn-sm ${s.telegramTemplate?.mode === 'standard' ? 'prism-btn-primary' : 'prism-btn-ghost'}`}
+              onClick={() => {
+                setS(prev => ({
+                  ...prev,
+                  telegramTemplate: {
+                    mode: 'standard',
+                    showConfidence: true,
+                    showSummary: true,
+                    showPracticalTip: true,
+                    showFunFact: false,
+                    showSourceLink: true,
+                    showMatrix: false,
+                  }
+                }));
+              }}
+              style={{ fontSize: '11.5px', padding: '4px 10px' }}
+            >
+              ⚖ {t.settings.telegramTemplate?.modeStandard || '標準平衡'}
+            </button>
+            <button
+              type="button"
+              className={`prism-btn prism-btn-sm ${s.telegramTemplate?.mode === 'detailed' ? 'prism-btn-primary' : 'prism-btn-ghost'}`}
+              onClick={() => {
+                setS(prev => ({
+                  ...prev,
+                  telegramTemplate: {
+                    mode: 'detailed',
+                    showConfidence: true,
+                    showSummary: true,
+                    showPracticalTip: true,
+                    showFunFact: true,
+                    showSourceLink: true,
+                    showMatrix: true,
+                  }
+                }));
+              }}
+              style={{ fontSize: '11.5px', padding: '4px 10px' }}
+            >
+              🔬 {t.settings.telegramTemplate?.modeDetailed || '深度研析'}
+            </button>
+          </div>
+
+          {/* Module Toggles */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+            gap: '8px',
+            paddingTop: '6px'
+          }}>
+            {[
+              { key: 'showConfidence', label: t.settings.telegramTemplate?.fieldConfidence || '信賴度指標 (🟢/🟡/🔴)' },
+              { key: 'showSummary', label: t.settings.telegramTemplate?.fieldSummary || '核心研析摘要' },
+              { key: 'showPracticalTip', label: t.settings.telegramTemplate?.fieldPracticalTip || '沖煮實用建議 (💡)' },
+              { key: 'showFunFact', label: t.settings.telegramTemplate?.fieldFunFact || '冷知識 / 趣聞 (☕)' },
+              { key: 'showMatrix', label: t.settings.telegramTemplate?.fieldMatrix || '專家共識與分歧 (✓/⚠)' },
+              { key: 'showSourceLink', label: t.settings.telegramTemplate?.fieldSourceLink || '原文參照連結' },
+            ].map(item => (
+              <label
+                key={item.key}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '12px',
+                  color: s.telegramTemplate?.[item.key] ? 'var(--prism-text-primary)' : 'var(--prism-text-muted)',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  padding: '4px 0'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={!!s.telegramTemplate?.[item.key]}
+                  onChange={e => {
+                    const checked = e.target.checked;
+                    setS(prev => ({
+                      ...prev,
+                      telegramTemplate: {
+                        ...(prev.telegramTemplate || {}),
+                        [item.key]: checked
+                      }
+                    }));
+                  }}
+                  style={{ accentColor: 'var(--prism-amber-500)', cursor: 'pointer' }}
+                />
+                {item.label}
+              </label>
+            ))}
+          </div>
+
+          {/* Live Preview Box */}
+          <div style={{
+            marginTop: '8px',
+            paddingTop: '12px',
+            borderTop: '1px solid var(--prism-border-subtle)'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '8px'
+            }}>
+              <span style={{
+                fontFamily: 'var(--prism-font-mono)',
+                fontSize: '11px',
+                color: 'var(--prism-amber-400)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em'
+              }}>
+                💬 {t.settings.telegramTemplate?.previewTitle || 'Telegram 氣泡即時預覽'}
+              </span>
+              <span style={{ fontSize: '11px', color: 'var(--prism-text-dim)' }}>
+                {t.settings.telegramTemplate?.previewHint || '依據當前範本渲染'}
+              </span>
+            </div>
+
+            <div style={{
+              background: 'rgba(24, 37, 51, 0.92)',
+              borderRadius: '12px 12px 12px 2px',
+              padding: '14px 16px',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              color: '#f5f5f5',
+              fontSize: '13px',
+              lineHeight: 1.6,
+              boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)',
+              maxHeight: '260px',
+              overflowY: 'auto',
+              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+            }}>
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: formatTelegramMessage(
+                    getSampleCards(lang || 'zh').slice(0, 1),
+                    lang || 'zh',
+                    s.telegramTemplate
+                  )
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         <div style={{ paddingTop: '14px', borderTop: '1px solid var(--prism-border-subtle)', display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>

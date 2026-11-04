@@ -181,7 +181,7 @@ export function useDashboard(lang, t = null) {
 
       // Auto-push to Telegram if configured
       if (settings.botToken && settings.chatId && settings.autoTelegram) {
-        const msg = formatTelegramMessage(result, lang);
+        const msg = formatTelegramMessage(result, lang, settings.telegramTemplate);
         await sendTelegram(settings.botToken, settings.chatId, msg);
         setSentTelegram(true);
       }
@@ -233,7 +233,7 @@ export function useDashboard(lang, t = null) {
     setRunning(true);
     setError('');
     try {
-      const msg = formatTelegramMessage(cards, lang);
+      const msg = formatTelegramMessage(cards, lang, settings.telegramTemplate);
       await sendTelegram(settings.botToken, settings.chatId, msg);
       setSentTelegram(true);
     } catch (e) {
