@@ -98,6 +98,11 @@ export const translations = {
         funFact: 'Fun Fact',
         practicalTip: 'Practical Tip',
         showSources: 'Show sources',
+        exportShare: 'Share / Export',
+        copyMarkdown: 'Copy Markdown (Obsidian / Notion)',
+        downloadMarkdown: 'Download .md file',
+        copyText: 'Copy text summary',
+        copied: 'Copied!',
       },
       messages: {
         telegramSent: 'Sent to Telegram',
@@ -383,6 +388,11 @@ export const translations = {
         funFact: '社群趣聞 / 冷知識',
         practicalTip: '沖煮實用建議',
         showSources: '顯示原始連結',
+        exportShare: '分享 / 匯出',
+        copyMarkdown: '複製 Markdown (Obsidian / Notion)',
+        downloadMarkdown: '下載 .md 筆記檔',
+        copyText: '複製重點文字',
+        copied: '已複製！',
       },
       messages: {
         telegramSent: '已成功推送至 Telegram',

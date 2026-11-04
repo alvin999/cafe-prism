@@ -29,16 +29,120 @@ const CardIcons = {
       <path d="M7 17 17 7" />
       <path d="M7 7h10v10" />
     </svg>
+  ),
+  Share: () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+      <polyline points="16 6 12 2 8 6" />
+      <line x1="12" y1="2" x2="12" y2="15" />
+    </svg>
   )
 };
 
 export default function ResearchCard({ card, t }) {
   const [expanded, setExpanded] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [copiedType, setCopiedType] = useState(null);
 
   const hasSidebarContent =
     !card.noModel &&
     Boolean(card.fun_fact || card.practical_tip || (card.keyTerms && card.keyTerms.length > 0));
+
+  // 產生適用於 Obsidian / Notion 的結構化 Markdown 內文
+  const generateMarkdown = () => {
+    const title = card.primaryTitle || card.subject || t.dashboard.card.untitled;
+    const sources = [...new Set((card.articles || []).map(a => a.source))].join(', ');
+    const tags = (card.keyTerms || []).map(k => `#${k}`).join(' ');
+
+    let md = `# ${title}\n\n`;
+    md += `> **信賴度 / Confidence**: ${card.confidence || 'unknown'}\n`;
+    if (sources) md += `> **情報來源 / Sources**: ${sources}\n`;
+    md += `> **卡片識別碼 / Hash**: #${card.hash}\n`;
+    if (tags) md += `> **標籤 / Tags**: ${tags}\n`;
+    md += `\n`;
+
+    if (card.summary) {
+      md += `## 📋 研析核心摘要\n\n${card.summary}\n\n`;
+    }
+
+    if (card.consensus || card.conflicts || card.uncertainty) {
+      md += `## ⚖ 分析矩陣\n\n`;
+      if (card.consensus) md += `- **專家共識**: ${card.consensus}\n`;
+      if (card.conflicts) md += `- **觀點分歧**: ${card.conflicts}\n`;
+      if (card.uncertainty) md += `- **待驗證項目**: ${card.uncertainty}\n`;
+      md += `\n`;
+    }
+
+    if (card.practical_tip) {
+      md += `## 💡 咖啡師沖煮實用建議\n\n${card.practical_tip}\n\n`;
+    }
+
+    if (card.fun_fact) {
+      md += `## ☕ 冷知識 / 趣聞\n\n${card.fun_fact}\n\n`;
+    }
+
+    if (card.articles && card.articles.length > 0) {
+      md += `## 📚 參考文獻與原始來源\n\n`;
+      card.articles.forEach((a, i) => {
+        md += `${i + 1}. [${a.title || 'Source'}](${a.link || '#'}) (${a.source})\n`;
+        if (a.snippet || a.description) {
+          md += `   > ${(a.snippet || a.description).slice(0, 200)}\n`;
+        }
+      });
+      md += `\n`;
+    }
+
+    md += `---\n*Exported from CaféPrism*\n`;
+    return md;
+  };
+
+  // 產生精簡社群與通訊軟體排版純文字
+  const generateShareText = () => {
+    const title = card.primaryTitle || card.subject || t.dashboard.card.untitled;
+    const confEmoji = card.confidence === 'high' ? '🟢' : card.confidence === 'medium' ? '🟡' : '🔴';
+    let txt = `☕【CaféPrism 研究筆記】${title}\n`;
+    txt += `信賴度：${confEmoji} ${card.confidence}\n\n`;
+    if (card.summary) {
+      txt += `${card.summary.slice(0, 300)}\n\n`;
+    }
+    if (card.practical_tip) {
+      txt += `💡 實務建議：${card.practical_tip}\n\n`;
+    }
+    if (card.articles && card.articles[0]?.link) {
+      txt += `🔗 原文連結：${card.articles[0].link}\n`;
+    }
+    return txt;
+  };
+
+  const handleCopy = async (type) => {
+    const text = type === 'markdown' ? generateMarkdown() : generateShareText();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedType(type);
+      setTimeout(() => setCopiedType(null), 2000);
+      setShowExportMenu(false);
+    } catch (err) {
+      console.error('Failed to copy text:', err);
+    }
+  };
+
+  const handleDownloadMd = () => {
+    const md = generateMarkdown();
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const safeTitle = (card.primaryTitle || card.subject || 'research')
+      .replace(/[/\\?%*:|"<>]/g, '_')
+      .slice(0, 40);
+    link.href = url;
+    link.download = `${card.hash}_${safeTitle}.md`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setShowExportMenu(false);
+  };
 
   const renderSummary = (text) => {
     if (!text) return null;
@@ -334,7 +438,74 @@ export default function ResearchCard({ card, t }) {
             {[...new Set(card.articles.map(a => a.source))].map(s => <SourceChip key={s} source={s} />)}
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Share / Export Menu */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setShowExportMenu(!showExportMenu)}
+                className="prism-btn prism-btn-ghost prism-btn-sm"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: copiedType ? 'var(--prism-success)' : undefined,
+                  fontFamily: 'var(--prism-font-mono)',
+                  fontSize: '11.5px',
+                }}
+              >
+                <CardIcons.Share />
+                {copiedType ? (t.dashboard.card.copied || 'Copied!') : (t.dashboard.card.exportShare || 'Share / Export')}
+              </button>
+
+              {showExportMenu && (
+                <div
+                  className="animate-fade-in"
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    bottom: '100%',
+                    marginBottom: '8px',
+                    background: 'var(--prism-bg-surface-elevated)',
+                    border: '1px solid var(--prism-border-medium)',
+                    borderRadius: 'var(--prism-radius-md)',
+                    boxShadow: 'var(--prism-shadow-card)',
+                    padding: '6px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    zIndex: 40,
+                    minWidth: '220px',
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('markdown')}
+                    className="prism-btn prism-btn-ghost prism-btn-sm"
+                    style={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: '11.5px', width: '100%' }}
+                  >
+                    📋 {t.dashboard.card.copyMarkdown}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadMd}
+                    className="prism-btn prism-btn-ghost prism-btn-sm"
+                    style={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: '11.5px', width: '100%' }}
+                  >
+                    💾 {t.dashboard.card.downloadMarkdown}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy('text')}
+                    className="prism-btn prism-btn-ghost prism-btn-sm"
+                    style={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: '11.5px', width: '100%' }}
+                  >
+                    💬 {t.dashboard.card.copyText}
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => setExpanded(!expanded)}
               className="prism-btn prism-btn-ghost prism-btn-sm"
