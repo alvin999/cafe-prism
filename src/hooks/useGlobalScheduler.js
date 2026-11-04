@@ -23,35 +23,46 @@ export function useGlobalScheduler() {
 
   const scheduleNext = useCallback(() => {
     clearTimer();
-    const sched = Storage.getSchedule();
-    if (!sched || !sched.enabled) return;
+    const profiles = Storage.getScheduleProfiles ? Storage.getScheduleProfiles() : [];
+    const activeProfiles = profiles.filter(p => p.enabled);
+    if (activeProfiles.length === 0) return;
 
-    const next = computeNextRun(sched.hour, sched.frequency, sched.dayOfWeek);
-    const msUntilNext = Math.max(0, next.getTime() - Date.now());
+    // 計算所有已啟用任務中，最快到達的下一次時間
+    const runs = activeProfiles.map(p => ({
+      profile: p,
+      next: computeNextRun(p.hour, p.frequency, p.dayOfWeek)
+    }));
 
-    console.log(`[useGlobalScheduler] Next run scheduled at: ${next.toLocaleString()} (in ${Math.round(msUntilNext / 1000 / 60)} mins)`);
+    runs.sort((a, b) => a.next.getTime() - b.next.getTime());
+    const earliest = runs[0];
+    const msUntilNext = Math.max(0, earliest.next.getTime() - Date.now());
+
+    console.log(`[useGlobalScheduler] Earliest run (${earliest.profile.name}) scheduled at: ${earliest.next.toLocaleString()} (in ${Math.round(msUntilNext / 1000 / 60)} mins)`);
 
     timerRef.current = setTimeout(async () => {
-      console.log('[useGlobalScheduler] Timer fired. Executing scheduled task...');
-      await executeScheduledTask(false);
-      scheduleNext(); // 執行後安排下一次
+      console.log(`[useGlobalScheduler] Timer fired for ${earliest.profile.name}. Executing scheduled task...`);
+      await executeScheduledTask(false, earliest.profile.id);
+      scheduleNext();
     }, msUntilNext);
   }, []);
 
   const evaluateAndRun = useCallback(async () => {
-    const sched = Storage.getSchedule();
+    const profiles = Storage.getScheduleProfiles ? Storage.getScheduleProfiles() : [];
+    const activeProfiles = profiles.filter(p => p.enabled);
     const meta = Storage.getScheduleMeta();
 
-    if (!sched || !sched.enabled) {
+    if (activeProfiles.length === 0) {
       clearTimer();
       return;
     }
 
-    // 檢查是否有錯過排程需要補跑
-    const { shouldCatchUp, scheduledTime } = checkMissedRun(sched, meta);
-    if (shouldCatchUp) {
-      console.log(`[useGlobalScheduler] Missed run detected for ${scheduledTime.toLocaleString()}. Triggering catch-up...`);
-      await executeScheduledTask(true);
+    // 檢查是否有任何 profile 錯過排程需要補跑
+    for (const p of activeProfiles) {
+      const { shouldCatchUp, scheduledTime } = checkMissedRun(p, meta);
+      if (shouldCatchUp) {
+        console.log(`[useGlobalScheduler] Missed run detected for profile "${p.name}" (${scheduledTime.toLocaleString()}). Triggering catch-up...`);
+        await executeScheduledTask(true, p.id);
+      }
     }
 
     // 重設下一次定時器
@@ -62,7 +73,7 @@ export function useGlobalScheduler() {
     // 初始啟動評估
     evaluateAndRun();
 
-    // 監聽排程更新事件（使用者在設定頁存檔時）
+    // 監聽排程更新事件
     const handleScheduleUpdated = () => {
       console.log('[useGlobalScheduler] Schedule configuration updated. Re-evaluating...');
       evaluateAndRun();
@@ -104,11 +115,12 @@ export function useGlobalScheduler() {
 
       setTimeout(() => {
         setStatus(prev => ({ ...prev, toastMessage: null }));
-      }, 4000);
+      }, 5000);
     };
 
     window.addEventListener('cr:schedule-updated', handleScheduleUpdated);
-    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('cr:settings-updated', handleScheduleUpdated);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', handleOnline);
     window.addEventListener('cr:scheduler-status', handleStatus);
     window.addEventListener('cr:scheduler-completed', handleCompleted);
@@ -116,7 +128,8 @@ export function useGlobalScheduler() {
     return () => {
       clearTimer();
       window.removeEventListener('cr:schedule-updated', handleScheduleUpdated);
-      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('cr:settings-updated', handleScheduleUpdated);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('cr:scheduler-status', handleStatus);
       window.removeEventListener('cr:scheduler-completed', handleCompleted);

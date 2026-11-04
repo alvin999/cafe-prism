@@ -341,9 +341,64 @@ export const Storage = {
     localStorage.setItem('cr_history', JSON.stringify(h.slice(0, 30)));
   },
   getSchedule: () => {
-    try { return JSON.parse(localStorage.getItem('cr_schedule') || '{}'); } catch { return {}; }
+    try {
+      const profiles = Storage.getScheduleProfiles();
+      return profiles[0] || {};
+    } catch {
+      return {};
+    }
   },
-  saveSchedule: (s) => localStorage.setItem('cr_schedule', JSON.stringify(s)),
+  saveSchedule: (s) => {
+    const profiles = Storage.getScheduleProfiles();
+    if (profiles.length > 0) {
+      profiles[0] = { ...profiles[0], ...s };
+      Storage.saveScheduleProfiles(profiles);
+    } else {
+      Storage.saveScheduleProfiles([{ id: 'default', name: '預設研析任務', ...s }]);
+    }
+  },
+  getScheduleProfiles: () => {
+    try {
+      const raw = localStorage.getItem('cr_schedule_profiles');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { }
+
+    // 自動相容舊版單一排程物件
+    let legacy = {};
+    try { legacy = JSON.parse(localStorage.getItem('cr_schedule') || '{}'); } catch { legacy = {}; }
+    const defaultProfile = {
+      id: 'default',
+      name: '預設研析任務',
+      enabled: legacy.enabled !== undefined ? !!legacy.enabled : false,
+      frequency: legacy.frequency || 'daily',
+      hour: legacy.hour !== undefined ? legacy.hour : 8,
+      dayOfWeek: legacy.dayOfWeek !== undefined ? legacy.dayOfWeek : 1,
+      subscriptions: Array.isArray(legacy.subscriptions) && legacy.subscriptions.length > 0
+        ? legacy.subscriptions
+        : ['espresso extraction', 'pourover brewing'],
+      sources: Array.isArray(legacy.sources) ? legacy.sources : ['scholar', 'reddit', 'rss'],
+      notifyTelegram: legacy.notifyTelegram !== undefined ? !!legacy.notifyTelegram : true,
+      lastRunTimestamp: legacy.lastRunTimestamp || null,
+    };
+    const profiles = [defaultProfile];
+    try {
+      localStorage.setItem('cr_schedule_profiles', JSON.stringify(profiles));
+    } catch { }
+    return profiles;
+  },
+  saveScheduleProfiles: (profiles) => {
+    if (!Array.isArray(profiles)) return;
+    localStorage.setItem('cr_schedule_profiles', JSON.stringify(profiles));
+    if (profiles.length > 0) {
+      localStorage.setItem('cr_schedule', JSON.stringify(profiles[0]));
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('cr:schedule-updated'));
+    }
+  },
   getScheduleMeta: () => {
     try { return JSON.parse(localStorage.getItem('cr_schedule_meta') || '{}'); } catch { return {}; }
   },

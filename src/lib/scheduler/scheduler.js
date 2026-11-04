@@ -53,7 +53,7 @@ export function getPreviousScheduledRunTime(hour = 8, frequency = 'daily', dayOf
 const MAX_CATCH_UP_AGE_MS = 48 * 3600 * 1000; // 最多只補跑過去 48 小時內的排程
 
 /**
- * 檢查是否錯過排程並需要補跑 (Catch-up)
+ * 檢查特定排程 Profile 是否錯過執行並需要補跑 (Catch-up)
  */
 export function checkMissedRun(scheduleConfig, meta, now = new Date()) {
   if (!scheduleConfig || !scheduleConfig.enabled) {
@@ -67,7 +67,7 @@ export function checkMissedRun(scheduleConfig, meta, now = new Date()) {
     now
   );
 
-  const lastRunTimestamp = meta?.lastRunTimestamp || 0;
+  const lastRunTimestamp = scheduleConfig.lastRunTimestamp || meta?.lastRunTimestamp || 0;
   const timeSinceTarget = now.getTime() - lastTarget.getTime();
 
   // 若距離該排程時間已超過 48 小時，視為休眠重啟，避免無預警自動補跑消耗大量 Token
@@ -87,61 +87,100 @@ export function checkMissedRun(scheduleConfig, meta, now = new Date()) {
 }
 
 /**
- * 內部排程執行核心
+ * 內部排程執行核心 (支援多任務 Profiles)
  */
-async function runTaskInternal(isCatchUp) {
-  const sched = Storage.getSchedule();
-  if (!sched || !sched.enabled) {
-    return { success: false, reason: 'schedule_disabled' };
+async function runTaskInternal(isCatchUp, profileId = null) {
+  const allProfiles = Storage.getScheduleProfiles();
+  const targets = profileId
+    ? allProfiles.filter(p => p.id === profileId)
+    : allProfiles.filter(p => p.enabled);
+
+  if (targets.length === 0) {
+    return { success: false, reason: 'no_active_profile' };
   }
 
   const settings = Storage.getSettings();
   const lang = settings.language || 'zh';
 
   isExecuting = true;
-  console.log(`[Scheduler] Starting ${isCatchUp ? 'catch-up' : 'scheduled'} task...`);
+  console.log(`[Scheduler] Starting ${isCatchUp ? 'catch-up' : 'scheduled'} task for ${targets.length} profile(s)...`);
 
-  // 發送開始事件
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('cr:scheduler-status', {
       detail: { running: true, isCatchUp }
     }));
   }
 
-  try {
-    const cards = await runResearchPipeline({ ...settings, language: lang }, () => {});
-    Storage.addHistory(cards);
+  let totalCards = 0;
+  const updatedProfiles = [...allProfiles];
 
-    // Telegram 通知
-    let telegramSent = false;
-    if (sched.notifyTelegram && settings.botToken && settings.chatId) {
-      try {
-        const msg = formatTelegramMessage(cards, lang);
-        await sendTelegram(settings.botToken, settings.chatId, msg);
-        telegramSent = true;
-      } catch (tgErr) {
-        console.error('[Scheduler] Telegram notification failed:', tgErr);
+  try {
+    for (const profile of targets) {
+      console.log(`[Scheduler] Running profile: ${profile.name} (${profile.id})`);
+
+      // 構建個別任務專屬 Pipeline 參數
+      const profileSettings = {
+        ...settings,
+        language: lang,
+      };
+
+      if (profile.subscriptions && profile.subscriptions.length > 0) {
+        profileSettings.keywords = profile.subscriptions.join(', ');
+        profileSettings.discoveryMode = false;
+      }
+
+      if (profile.sources && profile.sources.length > 0) {
+        profileSettings.enablePapers = profile.sources.includes('scholar');
+        profileSettings.enableReddit = profile.sources.includes('reddit');
+        profileSettings.enableNews = profile.sources.includes('rss');
+      }
+
+      const cards = await runResearchPipeline(profileSettings, () => {});
+      totalCards += cards.length;
+      Storage.addHistory(cards);
+
+      // Telegram 推播通知
+      let telegramSent = false;
+      if (profile.notifyTelegram && settings.botToken && settings.chatId) {
+        try {
+          const msg = formatTelegramMessage(cards, lang, settings.telegramTemplate);
+          await sendTelegram(settings.botToken, settings.chatId, msg);
+          telegramSent = true;
+        } catch (tgErr) {
+          console.error(`[Scheduler] Telegram notification failed for profile ${profile.name}:`, tgErr);
+        }
+      }
+
+      // 更新該 Profile 的最後執行戳記
+      const pIdx = updatedProfiles.findIndex(p => p.id === profile.id);
+      if (pIdx !== -1) {
+        updatedProfiles[pIdx] = {
+          ...updatedProfiles[pIdx],
+          lastRunTimestamp: Date.now(),
+          lastRunStatus: 'success',
+          lastRunCardsCount: cards.length,
+          lastTelegramSent: telegramSent
+        };
       }
     }
 
-    // 更新排程執行狀態元數據
+    Storage.saveScheduleProfiles(updatedProfiles);
+
     const meta = {
       lastRunTimestamp: Date.now(),
       lastRunStatus: 'success',
       lastRunType: isCatchUp ? 'catch_up' : 'scheduled',
-      telegramSent,
-      cardCount: cards.length,
+      cardCount: totalCards,
     };
     Storage.saveScheduleMeta(meta);
 
-    // 發送完成事件
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('cr:scheduler-completed', {
-        detail: { isCatchUp, cardsCount: cards.length, timestamp: Date.now() }
+        detail: { isCatchUp, cardsCount: totalCards, timestamp: Date.now() }
       }));
     }
 
-    return { success: true, cards, meta };
+    return { success: true, totalCards, meta };
   } catch (err) {
     console.error('[Scheduler] Task failed:', err);
     Storage.saveScheduleMeta({
@@ -163,13 +202,12 @@ async function runTaskInternal(isCatchUp) {
 /**
  * 執行排程研究任務（支援 Web Locks API 跨分頁互斥防衝突）
  */
-export async function executeScheduledTask(isCatchUp = false) {
+export async function executeScheduledTask(isCatchUp = false, profileId = null) {
   if (isExecuting) {
     console.warn('[Scheduler] Task is already running in current tab. Skipping duplicate execution.');
     return { success: false, reason: 'already_running' };
   }
 
-  // 1. 若瀏覽器支援 Web Locks API，採用原生互斥鎖（防止多分頁重複觸發）
   if (typeof navigator !== 'undefined' && navigator.locks?.request) {
     return await navigator.locks.request(
       'cafe_prism_scheduler_lock',
@@ -179,11 +217,10 @@ export async function executeScheduledTask(isCatchUp = false) {
           console.warn('[Scheduler] Another browser tab holds the scheduler lock. Skipping execution in this tab.');
           return { success: false, reason: 'lock_held_by_another_tab' };
         }
-        return await runTaskInternal(isCatchUp);
+        return await runTaskInternal(isCatchUp, profileId);
       }
     );
   }
 
-  // 2. 備援方案：在單一分頁環境下直接執行
-  return await runTaskInternal(isCatchUp);
+  return await runTaskInternal(isCatchUp, profileId);
 }
