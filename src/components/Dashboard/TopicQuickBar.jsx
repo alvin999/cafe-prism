@@ -1,7 +1,27 @@
 import { useState, useEffect } from 'react';
 import { Storage } from '../../lib/engine.js';
 
-export default function TopicQuickBar({ t }) {
+const Icons = {
+  Sparkles: () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z" />
+    </svg>
+  ),
+  Target: () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </svg>
+  ),
+  Edit: () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </svg>
+  )
+};
+
+export default function TopicQuickBar({ t, embedded = false }) {
   const [discoveryMode, setDiscoveryMode] = useState(true);
   const [keywords, setKeywords] = useState('');
   const [tempKeywords, setTempKeywords] = useState('');
@@ -66,14 +86,18 @@ export default function TopicQuickBar({ t }) {
   };
 
   const topicT = t?.dashboard?.topicBar || {};
+  // 移除字串開頭可能帶有的 Emoji，交由精緻 SVG 呈現
+  const cleanLabel = (str, fallback) => (str || fallback).replace(/^[✨🎯✎\s]+/, '');
 
   return (
-    <div className="prism-card prism-topic-bar animate-fade-in">
+    <div
+      className={embedded ? 'animate-fade-in' : 'prism-card prism-topic-bar animate-fade-in'}
+      style={embedded ? { display: 'flex', flexDirection: 'column', gap: '10px' } : undefined}
+    >
       <div className="prism-topic-bar-header">
-        {/* 左側：模式選擇 Pill */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           <span className="prism-topic-bar-title">
-            {topicT.title || '探索主題策略'}:
+            {topicT.title || 'DISCOVERY STRATEGY'}
           </span>
 
           <div className="prism-topic-pill-group">
@@ -82,38 +106,42 @@ export default function TopicQuickBar({ t }) {
               onClick={() => handleModeSwitch(true)}
               className={`prism-topic-pill-btn ${discoveryMode ? 'is-active' : ''}`}
             >
-              {topicT.switchToSmart || '✨ 智慧探索'}
+              <Icons.Sparkles />
+              {cleanLabel(topicT.switchToSmart, '智慧探索')}
             </button>
             <button
               type="button"
               onClick={() => handleModeSwitch(false)}
               className={`prism-topic-pill-btn ${!discoveryMode ? 'is-active' : ''}`}
             >
-              {topicT.switchToCustom || '🎯 自訂主題'}
+              <Icons.Target />
+              {cleanLabel(topicT.switchToCustom, '自訂主題')}
             </button>
           </div>
         </div>
 
-        {/* 右側：狀態說明或反饋 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {savedBadge && (
             <span
               style={{
                 fontSize: '11.5px',
+                fontFamily: 'var(--prism-font-mono)',
                 color: 'var(--prism-success)',
                 animation: 'fade-in 0.2s ease',
               }}
             >
-              ✓ 已儲存
+              ✓ SAVED
             </span>
           )}
         </div>
       </div>
 
-      {/* 下方內容展開 */}
       {discoveryMode ? (
         <div className="prism-topic-desc-box">
-          <span>{topicT.smartActive || '✨ 智慧探索模式（自動鎖定全球最新熱門論文、社群與產業焦點）'}</span>
+          <span style={{ color: 'var(--prism-amber-400)', display: 'inline-flex', flexShrink: 0 }}>
+            <Icons.Sparkles />
+          </span>
+          <span>{cleanLabel(topicT.smartActive, '智慧探索模式（自動鎖定全球最新熱門論文、社群與產業焦點）')}</span>
         </div>
       ) : (
         <div className="prism-topic-custom-box">
@@ -121,7 +149,7 @@ export default function TopicQuickBar({ t }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '240px' }}>
               <input
                 className="prism-input"
-                style={{ flex: 1, fontSize: '12px', padding: '6px 12px' }}
+                style={{ flex: 1, fontSize: '12.5px', padding: '6px 12px' }}
                 value={tempKeywords}
                 onChange={(e) => setTempKeywords(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -158,8 +186,8 @@ export default function TopicQuickBar({ t }) {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '12px', color: 'var(--prism-text-secondary)', fontWeight: 500 }}>
-                  {topicT.customActive || '🎯 當前主題'}:
+                <span style={{ fontSize: '11.5px', color: 'var(--prism-text-muted)', fontWeight: 500 }}>
+                  {cleanLabel(topicT.customActive, '當前主題')}:
                 </span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {keywords
@@ -182,7 +210,8 @@ export default function TopicQuickBar({ t }) {
                   setIsEditing(true);
                 }}
               >
-                ✎ {topicT.edit || '編輯主題'}
+                <Icons.Edit />
+                {cleanLabel(topicT.edit, '編輯主題')}
               </button>
             </div>
           )}

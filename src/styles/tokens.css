@@ -1,72 +1,99 @@
-/* ─── CaféPrism Design Tokens ───────────────────────────────────────────── */
+/* ─── CaféPrism Design Tokens (Flagship Editorial Edition) ─────────────── */
 
 :root {
+  /* 字體排印系統 (Typography Hierarchy) */
+  --prism-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Noto Sans TC', 'PingFang TC', sans-serif;
+  --prism-font-display: 'Plus Jakarta Sans', 'Inter', 'Noto Sans TC', sans-serif;
+  --prism-font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, monospace;
+
   /* 品牌核心色譜 (Prism Amber & Roast Spectrum) */
   --prism-amber-50: #fbf7ee;
   --prism-amber-100: #f5eed8;
   --prism-amber-200: #ebd8ab;
   --prism-amber-300: #dfbe78;
-  --prism-amber-400: #d4a64c;
-  --prism-amber-500: #c8a060; /* 主強調色 Accent */
+  --prism-amber-400: #d8ad56;
+  --prism-amber-500: #c8a060;
+  /* 主強調色 Accent */
   --prism-accent: #c8a060;
   --prism-amber-600: #b5853a;
   --prism-amber-700: #90642b;
   --prism-amber-800: #754f24;
   --prism-amber-900: #603f1f;
 
-  /* 背景色階（深曜沉浸黑） */
-  --prism-bg-darkest: #090907;
-  --prism-bg-dark: #0d0d0b;
-  --prism-bg-surface: #141310;
-  --prism-bg-surface-elevated: #1b1a15;
-  --prism-bg-glass: rgba(18, 17, 14, 0.72);
-  --prism-bg-glass-card: rgba(255, 255, 255, 0.025);
-  --prism-bg-glass-hover: rgba(255, 255, 255, 0.055);
-  --prism-bg-active: rgba(200, 160, 96, 0.12);
+  /* 背景色階（深曜沉浸黑 + 暖調黑曜石漸層） */
+  --prism-bg-darkest: #070706;
+  --prism-bg-dark: #0b0b09;
+  --prism-bg-surface: #12110e;
+  --prism-bg-surface-elevated: #181713;
+  --prism-bg-card: #141310;
+  --prism-bg-recessed: rgba(0, 0, 0, 0.36);
+  /* 內凹資訊槽底色 */
+  --prism-bg-glass: rgba(18, 17, 14, 0.78);
 
-  /* 文字色彩階層 */
+  /* 升級版：立體玻璃表面漸層 */
+  --prism-bg-glass-card: linear-gradient(165deg,
+      rgba(255, 255, 255, 0.038) 0%,
+      rgba(255, 255, 255, 0.012) 100%);
+  --prism-bg-glass-hover: linear-gradient(165deg,
+      rgba(255, 255, 255, 0.058) 0%,
+      rgba(200, 160, 96, 0.025) 100%);
+  --prism-bg-active: rgba(200, 160, 96, 0.14);
+
+  /* 文字色彩階層（拉開主次對比度） */
   --prism-text-bright: #ffffff;
-  --prism-text-primary: #f0ead8;
-  --prism-text-secondary: #c0b898;
-  --prism-text-muted: #888070;
-  --prism-text-dim: #5a5242;
+  --prism-text-primary: #f4efe2;
+  --prism-text-secondary: #b8b096;
+  --prism-text-muted: #827a68;
+  --prism-text-dim: #544d3f;
 
-  /* 邊框與光澤 */
-  --prism-border-subtle: rgba(255, 255, 255, 0.07);
-  --prism-border-medium: rgba(255, 255, 255, 0.14);
-  --prism-border-accent: rgba(200, 160, 96, 0.3);
-  --prism-border-accent-strong: rgba(200, 160, 96, 0.6);
-  --prism-glow-amber: 0 0 20px -4px rgba(200, 160, 96, 0.25);
-  --prism-glow-card: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  /* 邊框與頂部受光高光 (Borders & Specular Highlights) */
+  --prism-border-subtle: rgba(255, 255, 255, 0.065);
+  --prism-border-medium: rgba(255, 255, 255, 0.13);
+  --prism-border-specular: rgba(255, 255, 255, 0.15);
+  /* 模擬上方光源打在玻璃頂部邊緣 */
+  --prism-border-accent: rgba(200, 160, 96, 0.32);
+  --prism-border-accent-strong: rgba(200, 160, 96, 0.58);
 
-  /* 語意狀態色 (Semantic Colors) */
-  --prism-success: #4a9967;
-  --prism-success-bg: rgba(74, 153, 103, 0.1);
-  --prism-success-border: rgba(74, 153, 103, 0.25);
+  /* 景深陰影與環境光暈 (Elevation & Ambient Glow) */
+  --prism-shadow-sm: 0 4px 12px -2px rgba(0, 0, 0, 0.45);
+  --prism-shadow-card:
+    0 20px 44px -16px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  --prism-shadow-card-hover:
+    0 26px 54px -14px rgba(0, 0, 0, 0.82),
+    0 0 28px -6px rgba(200, 160, 96, 0.18),
+    inset 0 1px 0 0 rgba(200, 160, 96, 0.22);
+  --prism-glow-amber: 0 0 24px -4px rgba(200, 160, 96, 0.28);
+  --prism-glow-card: 0 14px 36px -10px rgba(0, 0, 0, 0.65);
 
-  --prism-warning: #c89540;
-  --prism-warning-bg: rgba(200, 149, 64, 0.1);
-  --prism-warning-border: rgba(200, 149, 64, 0.25);
+  /* 語意狀態色（降低螢光感，提升沉穩度） */
+  --prism-success: #52a872;
+  --prism-success-bg: rgba(82, 168, 114, 0.09);
+  --prism-success-border: rgba(82, 168, 114, 0.24);
 
-  --prism-danger: #c05040;
-  --prism-danger-bg: rgba(192, 80, 64, 0.1);
-  --prism-danger-border: rgba(192, 80, 64, 0.25);
+  --prism-warning: #d49b42;
+  --prism-warning-bg: rgba(212, 155, 66, 0.09);
+  --prism-warning-border: rgba(212, 155, 66, 0.24);
 
-  --prism-info: #5a88c8;
-  --prism-info-bg: rgba(90, 136, 200, 0.1);
-  --prism-info-border: rgba(90, 136, 200, 0.25);
+  --prism-danger: #cf5948;
+  --prism-danger-bg: rgba(207, 89, 72, 0.09);
+  --prism-danger-border: rgba(207, 89, 72, 0.25);
 
-  /* 圓角半徑 */
+  --prism-info: #6494d4;
+  --prism-info-bg: rgba(100, 148, 212, 0.09);
+  --prism-info-border: rgba(100, 148, 212, 0.24);
+
+  /* 圓角半徑（微調更俐落的工業比例） */
   --prism-radius-sm: 6px;
   --prism-radius-md: 10px;
-  --prism-radius-lg: 14px;
-  --prism-radius-xl: 20px;
+  --prism-radius-lg: 16px;
+  --prism-radius-xl: 22px;
   --prism-radius-full: 9999px;
 
   /* 動畫轉場 */
   --prism-ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
   --prism-ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
-  --prism-transition-fast: 0.15s var(--prism-ease-smooth);
-  --prism-transition-normal: 0.25s var(--prism-ease-spring);
-  --prism-transition-slow: 0.4s var(--prism-ease-spring);
+  --prism-transition-fast: 0.16s var(--prism-ease-smooth);
+  --prism-transition-normal: 0.28s var(--prism-ease-spring);
+  --prism-transition-slow: 0.45s var(--prism-ease-spring);
 }
