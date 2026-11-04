@@ -20,7 +20,7 @@
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(11, 11, 9, 0.82);
+  background: var(--prism-header-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
@@ -69,7 +69,7 @@
   position: sticky;
   top: 60px;
   height: calc(100vh - 60px);
-  background: rgba(9, 9, 7, 0.65);
+  background: var(--prism-sidebar-bg);
   box-sizing: border-box;
   transition: width 0.25s var(--prism-ease-spring), padding 0.25s ease;
 }

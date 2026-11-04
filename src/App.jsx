@@ -99,6 +99,12 @@ const getPageFromUrl = () => {
 
 export default function App() {
   const [lang, setLang] = useState(() => Storage.getSettings().language || 'zh');
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === 'undefined') return 'dark';
+    const saved = localStorage.getItem('cr_theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  });
   const [page, setPage] = useState(getPageFromUrl);
   const [hasUnsavedSettings, setHasUnsavedSettings] = useState(false);
   const [pendingPage, setPendingPage] = useState(null);
@@ -125,6 +131,13 @@ export default function App() {
     const s = Storage.getSettings();
     Storage.saveSettings({ ...s, language: lang });
   }, [lang]);
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('cr_theme', theme);
+    }
+  }, [theme]);
 
   useEffect(() => {
     const currentTarget = getPageFromUrl();
@@ -247,23 +260,60 @@ export default function App() {
             )}
           </div>
 
-          {/* Lang toggle */}
-          <button
-            className="prism-btn prism-btn-ghost prism-btn-sm"
-            onClick={() => setLang(l => l === 'zh' ? 'en' : 'zh')}
-            style={{
-              fontFamily: 'var(--prism-font-mono)',
-              fontSize: '11.5px',
-              letterSpacing: '0.04em'
-            }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-              <path d="M2 12h20" />
-            </svg>
-            {t.app.switchLang}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Theme toggle */}
+            <button
+              type="button"
+              className="prism-btn prism-btn-ghost prism-btn-sm"
+              onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? t.app.themeLight : t.app.themeDark}
+              aria-label={theme === 'dark' ? t.app.themeLight : t.app.themeDark}
+              style={{
+                fontFamily: 'var(--prism-font-mono)',
+                fontSize: '11.5px',
+                padding: '6px 10px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              {theme === 'dark' ? (
+                <svg width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2" />
+                  <path d="M12 20v2" />
+                  <path d="m4.93 4.93 1.41 1.41" />
+                  <path d="m17.66 17.66 1.41 1.41" />
+                  <path d="M2 12h2" />
+                  <path d="M20 12h2" />
+                  <path d="m6.34 17.66-1.41 1.41" />
+                  <path d="m19.07 4.93-1.41 1.41" />
+                </svg>
+              ) : (
+                <svg width="13.5" height="13.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                </svg>
+              )}
+            </button>
+
+            {/* Lang toggle */}
+            <button
+              className="prism-btn prism-btn-ghost prism-btn-sm"
+              onClick={() => setLang(l => l === 'zh' ? 'en' : 'zh')}
+              style={{
+                fontFamily: 'var(--prism-font-mono)',
+                fontSize: '11.5px',
+                letterSpacing: '0.04em'
+              }}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+                <path d="M2 12h20" />
+              </svg>
+              {t.app.switchLang}
+            </button>
+          </div>
         </header>
 
         <div className="prism-body">

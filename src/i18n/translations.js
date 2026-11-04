@@ -15,6 +15,8 @@ export const translations = {
       scheduledRun: 'Scheduled run…',
       switchLang: '中文',
       securityBadge: 'Keys stored locally\nNever sent to servers',
+      themeLight: 'Switch to light mode',
+      themeDark: 'Switch to dark mode',
     },
     dashboard: {
       title: 'Today\'s Research',
@@ -298,6 +300,8 @@ export const translations = {
       scheduledRun: '排程執行中…',
       switchLang: 'EN',
       securityBadge: '金鑰僅存於本機\n絕不上傳至伺服器',
+      themeLight: '切換至淺焙明亮模式',
+      themeDark: '切換至黑曜深色模式',
     },
     dashboard: {
       title: '今日研究摘要',

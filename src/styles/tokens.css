@@ -29,6 +29,8 @@
   --prism-bg-recessed: rgba(0, 0, 0, 0.36);
   /* 內凹資訊槽底色 */
   --prism-bg-glass: rgba(18, 17, 14, 0.78);
+  --prism-header-bg: rgba(11, 11, 9, 0.82);
+  --prism-sidebar-bg: rgba(9, 9, 7, 0.65);
 
   /* 升級版：立體玻璃表面漸層 */
   --prism-bg-glass-card: linear-gradient(165deg,
@@ -96,4 +98,51 @@
   --prism-transition-fast: 0.16s var(--prism-ease-smooth);
   --prism-transition-normal: 0.28s var(--prism-ease-spring);
   --prism-transition-slow: 0.45s var(--prism-ease-spring);
+}
+
+/* ─── Light Mode (Warm Editorial Cream / 經典淺焙米白) ───────────── */
+[data-theme='light'] {
+  /* 淺焙米白底色 */
+  --prism-bg-darkest: #f6f3ed;
+  --prism-bg-dark: #eee9df;
+  --prism-bg-surface: #ffffff;
+  --prism-bg-surface-elevated: #ffffff;
+  --prism-bg-card: #ffffff;
+  --prism-bg-recessed: rgba(0, 0, 0, 0.04);
+  --prism-bg-glass: rgba(255, 255, 255, 0.88);
+  --prism-header-bg: rgba(246, 243, 237, 0.88);
+  --prism-sidebar-bg: rgba(238, 233, 223, 0.75);
+
+  --prism-bg-glass-card: linear-gradient(165deg,
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(255, 255, 255, 0.75) 100%);
+  --prism-bg-glass-hover: linear-gradient(165deg,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(200, 160, 96, 0.08) 100%);
+  --prism-bg-active: rgba(200, 160, 96, 0.18);
+
+  /* 精緻深烘焙文字 */
+  --prism-text-bright: #1b1612;
+  --prism-text-primary: #2d241e;
+  --prism-text-secondary: #5c4f43;
+  --prism-text-muted: #8c7b6d;
+  --prism-text-dim: #b8aba0;
+
+  /* 邊框與柔和陰影 */
+  --prism-border-subtle: rgba(0, 0, 0, 0.08);
+  --prism-border-medium: rgba(0, 0, 0, 0.14);
+  --prism-border-specular: rgba(255, 255, 255, 0.9);
+  --prism-border-accent: rgba(181, 133, 58, 0.35);
+  --prism-border-accent-strong: rgba(181, 133, 58, 0.65);
+
+  --prism-shadow-sm: 0 2px 8px -1px rgba(0, 0, 0, 0.06);
+  --prism-shadow-card:
+    0 10px 30px -10px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  --prism-shadow-card-hover:
+    0 16px 36px -10px rgba(0, 0, 0, 0.12),
+    0 0 20px -4px rgba(200, 160, 96, 0.2),
+    inset 0 1px 0 0 rgba(200, 160, 96, 0.3);
+  --prism-glow-amber: 0 0 20px -4px rgba(181, 133, 58, 0.2);
+  --prism-glow-card: 0 8px 24px -8px rgba(0, 0, 0, 0.08);
 }
