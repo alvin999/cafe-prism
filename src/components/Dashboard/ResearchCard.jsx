@@ -44,12 +44,13 @@ export default function ResearchCard({ card, t }) {
   const [showDebug, setShowDebug] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [copiedType, setCopiedType] = useState(null);
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
   const hasSidebarContent =
     !card.noModel &&
     Boolean(card.fun_fact || card.practical_tip || (card.keyTerms && card.keyTerms.length > 0));
 
-  // 產生適用於 Obsidian / Notion 的結構化 Markdown 內文
+  // 產生結構化 Markdown 內文
   const generateMarkdown = () => {
     const title = card.primaryTitle || card.subject || t.dashboard.card.untitled;
     const sources = [...new Set((card.articles || []).map(a => a.source))].join(', ');
@@ -113,6 +114,25 @@ export default function ResearchCard({ card, t }) {
       txt += `🔗 原文連結：${card.articles[0].link}\n`;
     }
     return txt;
+  };
+
+  const handleNativeShare = async () => {
+    const title = card.primaryTitle || card.subject || t.dashboard.card.untitled;
+    const shareData = {
+      title: `CaféPrism: ${title}`,
+      text: generateShareText(),
+    };
+    if (card.articles?.[0]?.link && /^https?:\/\//i.test(card.articles[0].link)) {
+      shareData.url = card.articles[0].link;
+    }
+    try {
+      await navigator.share(shareData);
+      setShowExportMenu(false);
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.warn('Native share failed:', err);
+      }
+    }
   };
 
   const handleCopy = async (type) => {
@@ -475,9 +495,19 @@ export default function ResearchCard({ card, t }) {
                     flexDirection: 'column',
                     gap: '4px',
                     zIndex: 40,
-                    minWidth: '220px',
+                    minWidth: '200px',
                   }}
                 >
+                  {canNativeShare && (
+                    <button
+                      type="button"
+                      onClick={handleNativeShare}
+                      className="prism-btn prism-btn-ghost prism-btn-sm"
+                      style={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: '11.5px', width: '100%', color: 'var(--prism-amber-400)' }}
+                    >
+                      📱 {t.dashboard.card.nativeShare || '系統原生分享'}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleCopy('markdown')}
