@@ -475,7 +475,7 @@ export default function ResearchCard({ card, t }) {
                 }}
               >
                 <CardIcons.Share />
-                {copiedType ? (t.dashboard.card.copied || 'Copied!') : (t.dashboard.card.exportShare || 'Share / Export')}
+                {copiedType ? (t.dashboard.card.copied || 'Copied!') : (t.dashboard.card.exportShare || 'Share')}
               </button>
 
               {showExportMenu && (
@@ -495,7 +495,7 @@ export default function ResearchCard({ card, t }) {
                     flexDirection: 'column',
                     gap: '4px',
                     zIndex: 40,
-                    minWidth: '200px',
+                    minWidth: '190px',
                   }}
                 >
                   {canNativeShare && (
@@ -505,7 +505,7 @@ export default function ResearchCard({ card, t }) {
                       className="prism-btn prism-btn-ghost prism-btn-sm"
                       style={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: '11.5px', width: '100%', color: 'var(--prism-amber-400)' }}
                     >
-                      📱 {t.dashboard.card.nativeShare || '系統原生分享'}
+                      ↗ {t.dashboard.card.systemShare || '透過系統分享...'}
                     </button>
                   )}
                   <button
@@ -518,19 +518,19 @@ export default function ResearchCard({ card, t }) {
                   </button>
                   <button
                     type="button"
-                    onClick={handleDownloadMd}
-                    className="prism-btn prism-btn-ghost prism-btn-sm"
-                    style={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: '11.5px', width: '100%' }}
-                  >
-                    💾 {t.dashboard.card.downloadMarkdown}
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => handleCopy('text')}
                     className="prism-btn prism-btn-ghost prism-btn-sm"
                     style={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: '11.5px', width: '100%' }}
                   >
                     💬 {t.dashboard.card.copyText}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadMd}
+                    className="prism-btn prism-btn-ghost prism-btn-sm"
+                    style={{ justifyContent: 'flex-start', textAlign: 'left', fontSize: '11.5px', width: '100%' }}
+                  >
+                    💾 {t.dashboard.card.downloadMarkdown}
                   </button>
                 </div>
               )}
