@@ -240,6 +240,42 @@ export async function callLLM(settings, prompt, retries = 2, signal = null) {
       return d.candidates?.[0]?.content?.parts?.[0]?.text || '';
     }
 
+    if (provider === 'openrouter') {
+      let r;
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+          'X-Title': 'Cafe Prism',
+        };
+        if (typeof window !== 'undefined' && window.location?.origin) {
+          headers['HTTP-Referer'] = window.location.origin;
+        }
+        r = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+          }),
+          signal,
+        });
+      } catch (netErr) {
+        if (netErr.name === 'AbortError') throw netErr;
+        throw new LLMConnectionError(`無法連線至 OpenRouter 伺服器：${netErr.message}`, 'openrouter');
+      }
+      if (!r.ok) {
+        const errText = await r.text();
+        if (r.status === 401 || r.status === 403) {
+          throw new LLMAuthError(`OpenRouter API 金鑰無效或未授權 (HTTP ${r.status})`, 'openrouter');
+        }
+        if (r.status === 429) throw new Error('RATE_LIMIT');
+        throw new Error(`OpenRouter error: ${errText}`);
+      }
+      const d = await r.json();
+      return d.choices?.[0]?.message?.content || '';
+    }
+
     throw new Error(`Unknown provider: ${provider}`);
   };
 
@@ -336,6 +372,25 @@ export async function fetchGeminiModels(apiKey) {
     });
 }
 
+export async function fetchOpenRouterModels(apiKey) {
+  const r = await fetch('https://openrouter.ai/api/v1/models', {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!r.ok) throw new Error('Failed to fetch OpenRouter models');
+  const d = await r.json();
+  return (d.data || [])
+    .filter(m => {
+      const outputModalities = m.architecture?.output_modalities;
+      if (Array.isArray(outputModalities)) {
+        return outputModalities.includes('text');
+      }
+      const modality = (m.architecture?.modality || '').toLowerCase();
+      return !modality || modality.endsWith('->text');
+    })
+    .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
+    .map(m => ({ id: m.id, name: m.name || m.id }));
+}
+
 export async function fetchProviderModels(provider, apiKey) {
   if (!apiKey) return [];
   switch (provider) {
@@ -347,6 +402,8 @@ export async function fetchProviderModels(provider, apiKey) {
       return fetchAnthropicModels(apiKey);
     case 'gemini':
       return fetchGeminiModels(apiKey);
+    case 'openrouter':
+      return fetchOpenRouterModels(apiKey);
     default:
       return [];
   }
@@ -545,6 +602,19 @@ export async function validateAPIKeyPreflight(settings, signal = null) {
         }
         if (r.status !== 429) {
           throw new LLMAuthError(`Anthropic 金鑰驗證失敗 (HTTP ${r.status})`, 'anthropic');
+        }
+      }
+    } else if (provider === 'openrouter') {
+      const r = await fetch('https://openrouter.ai/api/v1/auth/key', {
+        headers: { Authorization: `Bearer ${trimmedKey}` },
+        signal: activeSignal,
+      });
+      if (!r.ok) {
+        if (r.status === 401 || r.status === 403) {
+          throw new LLMAuthError('OpenRouter API 金鑰無效或未授權 (401 Unauthorized)', 'openrouter');
+        }
+        if (r.status !== 429) {
+          throw new LLMAuthError(`OpenRouter 金鑰驗證失敗 (HTTP ${r.status})`, 'openrouter');
         }
       }
     }

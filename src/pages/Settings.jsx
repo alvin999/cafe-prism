@@ -279,31 +279,6 @@ function PasswordManageModal({ isOpen, mode, onClose, onSuccess, t }) {
   );
 }
 
-const FALLBACK_MODELS = {
-  groq: [
-    { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B (Versatile)' },
-    { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B (Instant)' },
-    { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B' },
-    { id: 'gemma2-9b-it', name: 'Gemma 2 9B' },
-  ],
-  gemini: [
-    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
-  ],
-  openai: [
-    { id: 'gpt-4o', name: 'GPT-4o' },
-    { id: 'gpt-4o-mini', name: 'GPT-4o mini' },
-    { id: 'o1-preview', name: 'o1 Preview' },
-    { id: 'o1-mini', name: 'o1 Mini' },
-  ],
-  anthropic: [
-    { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
-    { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku' },
-    { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus' },
-  ],
-};
-
 const normalizeSettings = (raw = {}) => {
   const provider = raw.provider || 'groq';
   const apiKeys = {
@@ -311,6 +286,7 @@ const normalizeSettings = (raw = {}) => {
     gemini: '',
     openai: '',
     anthropic: '',
+    openrouter: '',
     ...(raw.apiKeys || {}),
   };
   if (raw.apiKey && !apiKeys[provider]) {
@@ -321,7 +297,7 @@ const normalizeSettings = (raw = {}) => {
     ollamaUrl: raw.ollamaUrl || 'http://localhost:11434',
     ollamaModel: raw.ollamaModel || 'llama3.2',
     provider,
-    model: raw.model || 'llama-3.3-70b-versatile',
+    model: raw.model || '',
     apiKeys,
     botToken: raw.botToken || '',
     chatId: raw.chatId || '',
@@ -354,7 +330,7 @@ const areSettingsEqual = (a, b) => {
   for (const field of fields) {
     if (a[field] !== b[field]) return false;
   }
-  const providers = ['groq', 'gemini', 'openai', 'anthropic'];
+  const providers = ['groq', 'gemini', 'openai', 'anthropic', 'openrouter'];
   for (const p of providers) {
     const keyA = (a.apiKeys && a.apiKeys[p]) || '';
     const keyB = (b.apiKeys && b.apiKeys[p]) || '';
@@ -481,7 +457,7 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
         setCloudModels(models);
         setFetchStatus('success');
         KeyStatus.markValid(s.provider, key.trim());
-        if (!s.model) {
+        if (!s.model || !models.some(m => m.id === s.model)) {
           update('model', models[0].id);
         }
       } else {
@@ -901,17 +877,18 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                       ...prev,
                       provider: p,
                       apiKey: targetKey,
-                      model: FALLBACK_MODELS[p] ? FALLBACK_MODELS[p][0].id : prev.model,
+                      model: '',
                     }));
                     setCloudModels([]);
                     setFetchStatus('idle');
                     setFetchErrorDetail('');
                   }}
                 >
-                  <option value="groq">Groq (Free Tier)</option>
+                  <option value="groq">Groq</option>
                   <option value="gemini">Google Gemini</option>
                   <option value="openai">OpenAI</option>
                   <option value="anthropic">Anthropic Claude</option>
+                  <option value="openrouter">OpenRouter</option>
                 </select>
               </Field>
 
@@ -928,10 +905,10 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                       <option value="">{t.settings.loadingModels}</option>
                     ) : cloudModels.length > 0 ? (
                       cloudModels.map(m => <option key={m.id} value={m.id}>{m.name}</option>)
+                    ) : s.model ? (
+                      <option value={s.model}>{s.model}</option>
                     ) : (
-                      (FALLBACK_MODELS[s.provider] || []).map(m => (
-                        <option key={m.id} value={m.id}>{m.name}</option>
-                      ))
+                      <option value="">{t.settings.noModelsDetected}</option>
                     )}
                   </select>
                   <button
@@ -975,7 +952,9 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                           ? 'gsk_... (Groq Cloud)'
                           : s.provider === 'anthropic'
                             ? 'sk-ant-... (Anthropic Console)'
-                            : 'sk-... (OpenAI Platform)'
+                            : s.provider === 'openrouter'
+                              ? 'sk-or-v1-... (OpenRouter)'
+                              : 'sk-... (OpenAI Platform)'
                   }
                   disabled={isProtected && !isUnlocked}
                 />
