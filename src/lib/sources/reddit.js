@@ -47,6 +47,7 @@ export async function fetchReddit(keywords, discoveryMode = false) {
               }));
           }
         } catch (err) {
+          jsonError = err;
           console.warn(`[Reddit JSON] Failed endpoint ${ep.path}:`, err.message);
         }
         return [];
@@ -125,23 +126,36 @@ export async function fetchReddit(keywords, discoveryMode = false) {
     console.warn('[Reddit RSS Fallback] Failed:', rssErr);
   }
 
-  // 3. 備援策略 2：若 Reddit 遭雲端機房 429 嚴格阻擋，自動切換至社群討論熱門備援通道
+  // 3. 備援策略 2：若 Reddit 遭雲端機房 403/429 嚴格阻擋，自動切換至社群討論熱門備援通道
   try {
-    const communityQuery = isDiscovery
-      ? `coffee+espresso+${encodeURIComponent(currentTopic?.redditQuery || 'community')}+discussion`
-      : `coffee+espresso+${encodeURIComponent(keywords.join('+'))}+discussion`;
-    const communityProxy = `/api-news/rss/search?q=${communityQuery}&hl=en-US&gl=US&ceid=US:en`;
-    const res = await fetchWithTimeout(communityProxy, {}, 7000);
-    if (res.ok) {
-      const xml = await res.text();
-      const items = parseRSS(xml);
-      if (items && items.length > 0) {
-        return items.slice(0, 8).map(item => ({
-          ...item,
-          source: 'reddit',
-          score: 20,
-          topic: isDiscovery ? currentTopic?.label : null,
-        }));
+    const topicKeyword = currentTopic?.keywords?.[0] || 'coffee';
+    const userKeywords = keywords.slice(0, 3).join(' ');
+    const subFilter = subreddits.slice(0, 2).map(s => `site:reddit.com/r/${s}`).join(' OR ');
+
+    const fallbackQueries = isDiscovery
+      ? [
+          `(${subFilter}) ${topicKeyword}`,
+          `coffee espresso ${topicKeyword} discussion`,
+        ]
+      : [
+          `(${subFilter}) ${userKeywords}`,
+          `coffee ${userKeywords} discussion`,
+        ];
+
+    for (const q of fallbackQueries) {
+      const communityProxy = `/api-news/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;
+      const res = await fetchWithTimeout(communityProxy, {}, 7000);
+      if (res.ok) {
+        const xml = await res.text();
+        const items = parseRSS(xml);
+        if (items && items.length > 0) {
+          return items.slice(0, 8).map(item => ({
+            ...item,
+            source: 'reddit',
+            score: 20,
+            topic: isDiscovery ? currentTopic?.label : null,
+          }));
+        }
       }
     }
   } catch (commErr) {

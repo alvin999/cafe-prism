@@ -19,27 +19,46 @@ export async function onRequest(context) {
 
   const url = new URL(request.url);
   const subPath = url.pathname.replace(/^\/api-reddit/, '');
-  const targetUrl = `https://www.reddit.com${subPath}${url.search}`;
+  const hosts = ['https://www.reddit.com', 'https://old.reddit.com'];
+  const userAgent = 'web:cafe-prism:v1.0 (by /u/cafeprism)';
+
+  let lastStatus = 502;
+  let lastContentType = 'application/json; charset=utf-8';
+  let lastBody = '';
 
   try {
-    const resp = await fetch(targetUrl, {
-      method: request.method,
-      headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json, text/plain, */*',
-      },
-    });
+    for (const host of hosts) {
+      const targetUrl = `${host}${subPath}${url.search}`;
+      const resp = await fetch(targetUrl, {
+        method: request.method,
+        headers: {
+          'User-Agent': userAgent,
+          'Accept': 'application/json, text/plain, */*',
+        },
+      });
 
-    const contentType = resp.headers.get('content-type') || 'application/json; charset=utf-8';
-    const body = await resp.text();
+      lastStatus = resp.status;
+      lastContentType = resp.headers.get('content-type') || 'application/json; charset=utf-8';
+      lastBody = await resp.text();
 
-    return new Response(body, {
-      status: resp.status,
+      if (resp.ok) {
+        return new Response(lastBody, {
+          status: resp.status,
+          headers: {
+            'Content-Type': lastContentType,
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=180', // 成功時快取 3 分鐘
+          },
+        });
+      }
+    }
+
+    return new Response(lastBody, {
+      status: lastStatus,
       headers: {
-        'Content-Type': contentType,
+        'Content-Type': lastContentType,
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': resp.ok ? 'public, max-age=180' : 'no-cache', // 成功時快取 3 分鐘
+        'Cache-Control': 'no-cache',
       },
     });
   } catch (err) {
