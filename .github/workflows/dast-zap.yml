@@ -21,10 +21,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Run ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.12.0
+        uses: zaproxy/action-baseline@v0.15.0
         with:
           target: ${{ github.event.inputs.target_url || 'https://cafe-prism.pages.dev' }}
           cmd_options: '-a -j'
@@ -32,7 +32,7 @@ jobs:
 
       - name: Upload ZAP Report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: zap-baseline-report
           path: |
