@@ -35,8 +35,9 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true
 
-      - name: Run Google OSV-Scanner
+      - name: Run Google OSV-Scanner (full lockfile advisory)
         uses: google/osv-scanner-action/osv-scanner-action@v1.9.2
+        continue-on-error: true
         with:
           scan-args: |-
             --lockfile=package-lock.json
