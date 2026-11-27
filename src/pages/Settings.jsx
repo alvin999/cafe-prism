@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { Fragment, useState, useEffect, useRef } from 'react';
 import { useLang } from '../App.jsx';
 import { Storage, sendTelegram, formatTelegramMessage, getSampleCards, fetchOllamaModels, fetchProviderModels, testLLMConnection, KeyStatus } from '../lib/engine.js';
 import UnlockModal from '../components/UnlockModal.jsx';
@@ -1574,7 +1574,7 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
                       </a>
                     );
                   }
-                  return <React.Fragment key={idx}>{decode(part)}</React.Fragment>;
+                  return <Fragment key={idx}>{decode(part)}</Fragment>;
                 });
               })()}
             </div>
