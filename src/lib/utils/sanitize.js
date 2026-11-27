@@ -59,8 +59,13 @@ export const stripHtml = sanitizeHtmlText;
 export function safeUrl(url, fallback = '#') {
   if (!url || typeof url !== 'string') return fallback;
   const trimmed = url.trim();
-  if (/^https?:\/\//i.test(trimmed)) {
-    return trimmed;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return parsed.toString();
+    }
+  } catch {
+    return fallback;
   }
   return fallback;
 }

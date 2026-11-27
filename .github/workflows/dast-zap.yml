@@ -1,0 +1,42 @@
+name: DAST Baseline Scan (OWASP ZAP)
+
+on:
+  schedule:
+    # 每週三 UTC 03:00 針對正式部署站點執行黑箱弱點掃描
+    - cron: '0 3 * * 3'
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Target URL to scan'
+        required: false
+        default: 'https://cafe-prism.pages.dev'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  zap-baseline:
+    name: OWASP ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: ${{ github.event.inputs.target_url || 'https://cafe-prism.pages.dev' }}
+          cmd_options: '-a -j'
+          allow_issue_writing: false
+
+      - name: Upload ZAP Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-report
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+          if-no-files-found: ignore

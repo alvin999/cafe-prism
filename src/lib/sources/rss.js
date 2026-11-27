@@ -63,23 +63,6 @@ async function fetchFeedContent(url) {
     lastErr = err;
   }
 
-  // 3. 備援：使用公開 CORS 代理 (corsproxy.io / allorigins)
-  const publicProxies = [
-    `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  ];
-  for (const proxyEndpoint of publicProxies) {
-    try {
-      const res = await fetchWithTimeout(proxyEndpoint, {}, 6000);
-      if (res.ok) {
-        const text = await res.text();
-        if (text.includes('<item') || text.includes('<entry')) return text;
-      }
-    } catch (err) {
-      lastErr = err;
-    }
-  }
-
   throw lastErr || new Error(`無法連線至新聞來源: ${url}`);
 }
 

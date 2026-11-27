@@ -1,24 +1,28 @@
 // Cloudflare Pages Functions: Reddit API 代理端點
 // 自動代理所有 /api-reddit/* 請求至 https://www.reddit.com/*
 
+import {
+  guardProxyRequest,
+  sanitizeSubPath,
+  safeFetchExternal,
+  sanitizeContentType,
+} from '../_lib/security.js';
+
 export async function onRequest(context) {
   const { request } = context;
 
-  // 處理 CORS Preflight (OPTIONS) 請求
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-        'Access-Control-Allow-Headers': '*',
-        'Access-Control-Max-Age': '86400',
-      },
-    });
-  }
+  const { blocked, corsHeaders } = guardProxyRequest(context);
+  if (blocked) return blocked;
 
   const url = new URL(request.url);
-  const subPath = url.pathname.replace(/^\/api-reddit/, '');
+  const subPath = sanitizeSubPath(url.pathname, /^\/api-reddit/);
+  if (subPath === null) {
+    return new Response(
+      JSON.stringify({ error: 'Invalid request path' }),
+      { status: 400, headers: { 'Content-Type': 'application/json; charset=utf-8', ...corsHeaders } }
+    );
+  }
+
   const hosts = ['https://www.reddit.com', 'https://old.reddit.com'];
   const userAgent = 'web:cafe-prism:v1.0 (by /u/cafeprism)';
 
@@ -29,8 +33,8 @@ export async function onRequest(context) {
   try {
     for (const host of hosts) {
       const targetUrl = `${host}${subPath}${url.search}`;
-      const resp = await fetch(targetUrl, {
-        method: request.method,
+      const { resp, body } = await safeFetchExternal(targetUrl, {
+        method: request.method === 'HEAD' ? 'HEAD' : 'GET',
         headers: {
           'User-Agent': userAgent,
           'Accept': 'application/json, text/plain, */*',
@@ -38,37 +42,43 @@ export async function onRequest(context) {
       });
 
       lastStatus = resp.status;
-      lastContentType = resp.headers.get('content-type') || 'application/json; charset=utf-8';
-      lastBody = await resp.text();
+      lastContentType = sanitizeContentType(
+        resp.headers.get('content-type'),
+        'application/json; charset=utf-8'
+      );
+      lastBody = body;
 
       if (resp.ok) {
         return new Response(lastBody, {
           status: resp.status,
           headers: {
             'Content-Type': lastContentType,
-            'Access-Control-Allow-Origin': '*',
             'Cache-Control': 'public, max-age=180', // 成功時快取 3 分鐘
+            ...corsHeaders,
           },
         });
       }
     }
 
-    return new Response(lastBody, {
-      status: lastStatus,
-      headers: {
-        'Content-Type': lastContentType,
-        'Access-Control-Allow-Origin': '*',
-        'Cache-Control': 'no-cache',
-      },
-    });
+    return new Response(
+      JSON.stringify({ error: 'Upstream Reddit API error', status: lastStatus }),
+      {
+        status: lastStatus,
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-cache',
+          ...corsHeaders,
+        },
+      }
+    );
   } catch (err) {
     return new Response(
       JSON.stringify({ error: 'Failed to fetch Reddit API', message: err.message }),
       {
-        status: 502,
+        status: err.status || 502,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'Access-Control-Allow-Origin': '*',
+          ...corsHeaders,
         },
       }
     );

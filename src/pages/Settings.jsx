@@ -1538,17 +1538,45 @@ export default function Settings({ onDirtyChange, saveRef, discardRef }) {
               boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)',
               maxHeight: '260px',
               overflowY: 'auto',
+              whiteSpace: 'pre-line',
               fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
             }}>
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: formatTelegramMessage(
-                    getSampleCards(lang || 'zh').slice(0, 1),
-                    lang || 'zh',
-                    s.telegramTemplate
-                  )
-                }}
-              />
+              {(() => {
+                const rawHtml = formatTelegramMessage(
+                  getSampleCards(lang || 'zh').slice(0, 1),
+                  lang || 'zh',
+                  s.telegramTemplate
+                );
+                const decode = (txt) => txt
+                  .replace(/&lt;/g, '<')
+                  .replace(/&gt;/g, '>')
+                  .replace(/&quot;/g, '"')
+                  .replace(/&amp;/g, '&');
+                const tokens = rawHtml.split(/(<b>[\s\S]*?<\/b>|<i>[\s\S]*?<\/i>|<a\s+href="https?:\/\/[^"]+">[\s\S]*?<\/a>)/g);
+                return tokens.map((part, idx) => {
+                  if (part.startsWith('<b>') && part.endsWith('</b>')) {
+                    return <strong key={idx}>{decode(part.slice(3, -4))}</strong>;
+                  }
+                  if (part.startsWith('<i>') && part.endsWith('</i>')) {
+                    return <em key={idx}>{decode(part.slice(3, -4))}</em>;
+                  }
+                  const linkMatch = part.match(/^<a\s+href="(https?:\/\/[^"]+)">([\s\S]*?)<\/a>$/);
+                  if (linkMatch) {
+                    return (
+                      <a
+                        key={idx}
+                        href={linkMatch[1]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#64b5f6', textDecoration: 'underline' }}
+                      >
+                        {decode(linkMatch[2])}
+                      </a>
+                    );
+                  }
+                  return <React.Fragment key={idx}>{decode(part)}</React.Fragment>;
+                });
+              })()}
             </div>
           </div>
         </div>

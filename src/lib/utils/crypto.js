@@ -23,10 +23,13 @@ function base64ToUint8(base64) {
   return bytes;
 }
 
+const DEFAULT_PBKDF2_ITERATIONS = 600000;
+const LEGACY_PBKDF2_ITERATIONS = 100000;
+
 /**
  * 從使用者密碼與 Salt 衍生出 256 位元 AES-GCM 金鑰 (PBKDF2)
  */
-async function deriveAesKey(password, saltUint8) {
+async function deriveAesKey(password, saltUint8, iterations = DEFAULT_PBKDF2_ITERATIONS) {
   const enc = new TextEncoder();
   const passwordKey = await window.crypto.subtle.importKey(
     'raw',
@@ -40,7 +43,7 @@ async function deriveAesKey(password, saltUint8) {
     {
       name: 'PBKDF2',
       salt: saltUint8,
-      iterations: 100000,
+      iterations,
       hash: 'SHA-256',
     },
     passwordKey,
@@ -54,7 +57,7 @@ async function deriveAesKey(password, saltUint8) {
  * 加密敏感資料物件
  * @param {Object} dataObj 要加密的物件，如 { apiKey: '...', botToken: '...' }
  * @param {string} password 使用者自訂密碼
- * @returns {Promise<{ salt: string, iv: string, ciphertext: string }>}
+ * @returns {Promise<{ v: number, iterations: number, salt: string, iv: string, ciphertext: string }>}
  */
 export async function encryptSensitiveData(dataObj, password) {
   if (!window.crypto?.subtle) {
@@ -65,8 +68,8 @@ export async function encryptSensitiveData(dataObj, password) {
   const salt = window.crypto.getRandomValues(new Uint8Array(16));
   const iv = window.crypto.getRandomValues(new Uint8Array(12));
 
-  // 2. 衍生 AES 金鑰
-  const aesKey = await deriveAesKey(password, salt);
+  // 2. 衍生 AES 金鑰 (採用 OWASP 建議之 600,000 次迭代)
+  const aesKey = await deriveAesKey(password, salt, DEFAULT_PBKDF2_ITERATIONS);
 
   // 3. 加密 JSON 字串 (AES-GCM 自帶 AEAD 驗證標籤)
   const enc = new TextEncoder();
@@ -79,6 +82,8 @@ export async function encryptSensitiveData(dataObj, password) {
   );
 
   return {
+    v: 2,
+    iterations: DEFAULT_PBKDF2_ITERATIONS,
     salt: uint8ToBase64(salt),
     iv: uint8ToBase64(iv),
     ciphertext: uint8ToBase64(new Uint8Array(ciphertextBuffer)),
@@ -87,7 +92,7 @@ export async function encryptSensitiveData(dataObj, password) {
 
 /**
  * 解密敏感資料物件
- * @param {{ salt: string, iv: string, ciphertext: string }} encryptedPackage
+ * @param {{ v?: number, iterations?: number, salt: string, iv: string, ciphertext: string }} encryptedPackage
  * @param {string} password 使用者密碼
  * @returns {Promise<Object>} 解密後的原始資料物件
  */
@@ -96,7 +101,7 @@ export async function decryptSensitiveData(encryptedPackage, password) {
     throw new Error('Web Crypto API is not supported in this browser.');
   }
 
-  const { salt, iv, ciphertext } = encryptedPackage;
+  const { salt, iv, ciphertext, iterations } = encryptedPackage;
   if (!salt || !iv || !ciphertext) {
     throw new Error('INVALID_ENCRYPTED_PACKAGE');
   }
@@ -105,8 +110,12 @@ export async function decryptSensitiveData(encryptedPackage, password) {
   const ivUint8 = base64ToUint8(iv);
   const ciphertextUint8 = base64ToUint8(ciphertext);
 
-  // 1. 根據密碼與 Salt 衍生 AES 金鑰
-  const aesKey = await deriveAesKey(password, saltUint8);
+  // 1. 根據密碼與 Salt 衍生 AES 金鑰（向下相容舊版 100,000 次迭代密文）
+  const safeIterations =
+    Number.isInteger(iterations) && iterations >= LEGACY_PBKDF2_ITERATIONS && iterations <= 2000000
+      ? iterations
+      : LEGACY_PBKDF2_ITERATIONS;
+  const aesKey = await deriveAesKey(password, saltUint8, safeIterations);
 
   // 2. 嘗試 AES-GCM 解密
   try {

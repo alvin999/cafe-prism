@@ -3,7 +3,12 @@
 > **爬蟲爬到腳軟，三層光譜驗證** — AI 驅動的咖啡研究代理人，每個論點都有來源背書。  
 > **Deep crawls, three-spectrum verification** — An AI-powered coffee research agent where every claim is backed by credible sources.
 
-[English](#-caféprism-english) | [繁體中文](#-caféprism-稜咖-繁體中文)
+[English](#-caféprism-english) | [繁體中文](#-caféprism-稜咖-繁體中文) | [Security Policy](./SECURITY.md)
+
+[![Security Scan](https://github.com/alvin999/cafe-prism/actions/workflows/security-scan.yml/badge.svg)](https://github.com/alvin999/cafe-prism/actions/workflows/security-scan.yml)
+[![DAST Baseline Scan](https://github.com/alvin999/cafe-prism/actions/workflows/dast-zap.yml/badge.svg)](https://github.com/alvin999/cafe-prism/actions/workflows/dast-zap.yml)
+[![Security Policy](https://img.shields.io/badge/Security-Policy-green.svg)](./SECURITY.md)
+[![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](https://opensource.org/licenses/MIT)
 
 ---
 

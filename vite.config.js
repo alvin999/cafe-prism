@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { validateExternalUrl, safeFetchExternal } from './functions/_lib/security.js'
 
 export default defineConfig({
   plugins: [
@@ -10,21 +11,35 @@ export default defineConfig({
         server.middlewares.use(async (req, res, next) => {
           if (req.url && req.url.startsWith('/api-feed?url=')) {
             const targetUrl = decodeURIComponent(req.url.replace('/api-feed?url=', ''));
+            const validation = validateExternalUrl(targetUrl);
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+            if (!validation.valid) {
+              res.statusCode = validation.status;
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.end(JSON.stringify({ error: validation.error }));
+              return;
+            }
             try {
-              const resp = await fetch(targetUrl, {
+              const { resp, body } = await safeFetchExternal(validation.url, {
+                method: 'GET',
                 headers: {
                   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                   'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*'
                 }
               });
-              res.setHeader('Content-Type', resp.headers.get('content-type') || 'text/xml');
-              res.setHeader('Access-Control-Allow-Origin', '*');
-              const body = await resp.text();
-              res.statusCode = resp.status;
-              res.end(body);
+              if (resp.ok && (body.includes('<item') || body.includes('<entry') || body.includes('<rss'))) {
+                res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+                res.statusCode = 200;
+                res.end(body);
+              } else {
+                res.setHeader('Content-Type', 'application/json; charset=utf-8');
+                res.statusCode = resp.status >= 400 ? resp.status : 502;
+                res.end(JSON.stringify({ error: 'Upstream returned non-feed response' }));
+              }
             } catch (err) {
-              res.statusCode = 500;
-              res.end(err.message);
+              res.setHeader('Content-Type', 'application/json; charset=utf-8');
+              res.statusCode = err.status || 500;
+              res.end(JSON.stringify({ error: err.message }));
             }
             return;
           }
@@ -59,11 +74,6 @@ export default defineConfig({
         target: 'https://dailycoffeenews.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-dcn/, '')
-      },
-      '/api-allorigins': {
-        target: 'https://api.allorigins.win',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api-allorigins/, '')
       }
     }
   },

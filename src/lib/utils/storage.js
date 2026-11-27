@@ -474,21 +474,60 @@ export const Storage = {
   },
 
   importBackup: (jsonString) => {
+    if (typeof jsonString !== 'string' || jsonString.length > 512 * 1024) {
+      throw new Error('BACKUP_TOO_LARGE_OR_INVALID');
+    }
     let parsed;
     try {
       parsed = JSON.parse(jsonString);
     } catch {
       throw new Error('INVALID_JSON');
     }
-    if (!parsed || typeof parsed !== 'object' || (parsed.appName !== 'CafePrism' && !parsed.settings)) {
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || (parsed.appName !== 'CafePrism' && !parsed.settings)) {
       throw new Error('INVALID_BACKUP_FORMAT');
     }
-    if (parsed.settings && typeof parsed.settings === 'object') {
-      localStorage.setItem('cr_settings', JSON.stringify(parsed.settings));
+
+    const ALLOWED_SETTINGS_KEYS = new Set([
+      'language', 'provider', 'model', 'modelType', 'ollamaUrl', 'ollamaModel',
+      'discoveryMode', 'sources', 'subscriptions', 'telegramChatId',
+      'telegramTemplate', '_encrypted_keys', '_transparent_keys',
+      'apiKey', 'apiKeys', 'botToken', 'scholarApiKey',
+    ]);
+
+    if (parsed.settings && typeof parsed.settings === 'object' && !Array.isArray(parsed.settings)) {
+      const sanitizedSettings = {};
+      for (const [k, v] of Object.entries(parsed.settings)) {
+        if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+        if (!ALLOWED_SETTINGS_KEYS.has(k)) continue;
+        if (k === 'ollamaUrl' && typeof v === 'string' && v.trim()) {
+          try {
+            const u = new URL(v.trim());
+            const host = u.hostname.toLowerCase();
+            const isLocal = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+            if (u.protocol !== 'https:' && !(u.protocol === 'http:' && isLocal)) continue;
+          } catch {
+            continue;
+          }
+        }
+        sanitizedSettings[k] = v;
+      }
+      localStorage.setItem('cr_settings', JSON.stringify(sanitizedSettings));
     }
-    if (parsed.schedule && typeof parsed.schedule === 'object') {
-      localStorage.setItem('cr_schedule', JSON.stringify(parsed.schedule));
+
+    if (parsed.schedule && typeof parsed.schedule === 'object' && !Array.isArray(parsed.schedule)) {
+      const ALLOWED_SCHEDULE_KEYS = new Set([
+        'id', 'name', 'enabled', 'frequency', 'hour', 'dayOfWeek',
+        'subscriptions', 'sources', 'notifyTelegram', 'lastRunTimestamp',
+      ]);
+      const sanitizedSchedule = {};
+      for (const [k, v] of Object.entries(parsed.schedule)) {
+        if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+        if (!ALLOWED_SCHEDULE_KEYS.has(k)) continue;
+        sanitizedSchedule[k] = v;
+      }
+      localStorage.setItem('cr_schedule', JSON.stringify(sanitizedSchedule));
     }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('cr:settings-updated'));
       window.dispatchEvent(new Event('cr:schedule-updated'));

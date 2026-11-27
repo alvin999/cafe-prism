@@ -1,56 +1,58 @@
 // Cloudflare Pages Functions: Sprudge RSS 代理端點
 // 自動代理所有 /api-sprudge/* 請求至 https://sprudge.com/*
 
+import {
+  guardProxyRequest,
+  sanitizeSubPath,
+  safeFetchExternal,
+  sanitizeContentType,
+} from '../_lib/security.js';
+
 export async function onRequest(context) {
   const { request } = context;
 
-  // 處理 CORS Preflight (OPTIONS) 請求
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-        'Access-Control-Allow-Headers': '*',
-        'Access-Control-Max-Age': '86400',
-      },
-    });
-  }
+  const { blocked, corsHeaders } = guardProxyRequest(context);
+  if (blocked) return blocked;
 
   const url = new URL(request.url);
-  const subPath = url.pathname.replace(/^\/api-sprudge/, '');
+  const subPath = sanitizeSubPath(url.pathname, /^\/api-sprudge/);
+  if (subPath === null) {
+    return new Response(
+      JSON.stringify({ error: 'Invalid request path' }),
+      { status: 400, headers: { 'Content-Type': 'application/json; charset=utf-8', ...corsHeaders } }
+    );
+  }
+
   const targetUrl = `https://sprudge.com${subPath}${url.search}`;
 
   try {
-    const resp = await fetch(targetUrl, {
+    const { resp, body } = await safeFetchExternal(targetUrl, {
       method: 'GET',
       headers: {
         'User-Agent':
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml, */*',
       },
-      redirect: 'follow',
     });
 
-    const contentType = resp.headers.get('content-type') || 'text/xml; charset=utf-8';
-    const body = await resp.text();
+    const contentType = sanitizeContentType(resp.headers.get('content-type'), 'application/xml; charset=utf-8');
 
     return new Response(body, {
       status: resp.status,
       headers: {
         'Content-Type': contentType,
-        'Access-Control-Allow-Origin': '*',
         'Cache-Control': resp.ok ? 'public, max-age=600' : 'no-cache', // 成功時快取 10 分鐘
+        ...corsHeaders,
       },
     });
   } catch (err) {
     return new Response(
       JSON.stringify({ error: 'Failed to fetch Sprudge RSS feed', message: err.message }),
       {
-        status: 502,
+        status: err.status || 502,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'Access-Control-Allow-Origin': '*',
+          ...corsHeaders,
         },
       }
     );
