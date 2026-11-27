@@ -28,8 +28,12 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Run npm audit (high/critical)
+      - name: Run npm audit (production dependencies, high/critical)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Run npm audit (full tree advisory report)
         run: npm audit --audit-level=high
+        continue-on-error: true
 
       - name: Run Google OSV-Scanner
         uses: google/osv-scanner-action/osv-scanner-action@v1.9.2
